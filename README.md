@@ -1,4 +1,4 @@
-# 🧠 AgentBridge – The WordPress of AI Agents
+# Agent Bridge (Agent B) – The WordPress of AI Agents
 
 **Reliable AI agents, no AI team required.**
 
