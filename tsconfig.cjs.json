@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json", // Inherit from the base config
+    "compilerOptions": {
+      "module": "CommonJS",
+      "outDir": "./dist", // CJS output in root of dist
+      "declarationDir": "./dist" // Place .d.ts files alongside .js files
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "src/**/__tests__/*", "src/examples/**/*", "dist"]
+  }

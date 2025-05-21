@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2020", // Target a reasonably modern ECMAScript version
+    "module": "CommonJS", // For the main CJS build and ts-node development
+    "lib": ["ES2020", "DOM"], // Include DOM if any part might (unlikely for this lib)
+    "declaration": true, // Generate .d.ts files
+    "outDir": "./dist", // Output directory for CJS build
+    "rootDir": "./src",
+    "strict": true, // Enable all strict type-checking options
+    "esModuleInterop": true, // Enables compatibility with CommonJS modules
+    "skipLibCheck": true, // Skip type checking of declaration files from node_modules
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node", // How modules are resolved
+    "resolveJsonModule": true, // Allow importing .json files
+    "sourceMap": true, // Generate source maps for debugging
+    // "baseUrl": "./", // Optional: if you use path aliases
+    // "paths": { ... }
+  },
+  "include": ["src/**/*"], // Files to include in compilation
+  "exclude": ["node_modules", "dist", "src/**/__tests__/*", "src/examples/**/*"] // Exclude tests & examples from lib build
+}

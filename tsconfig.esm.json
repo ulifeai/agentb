@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json", // Inherit from the base config
+    "compilerOptions": {
+      "module": "ESNext", // Or ES2020, ES2022, etc.
+      "outDir": "./dist/esm", // ESM output in a subdirectory
+      "declaration": true,
+      "declarationDir": "./dist/types_esm", // Separate declaration dir for ESM if needed, or can be same as outDir
+      "moduleResolution": "Bundler" // Or "NodeNext" for modern Node ESM resolution
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "src/**/__tests__/*", "src/examples/**/*", "dist"]
+  }
