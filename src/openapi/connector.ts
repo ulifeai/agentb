@@ -133,6 +133,10 @@ class OpenAPIOperationTool implements ITool<Record<string, any>, any> {
     // The connector's method now expects the sanitized tool name (which is definition.name)
     return this.connector.executeSpecificOperationInternal(this.definition.name, input);
   }
+
+  async getOpenAPISpec(): Promise<OpenAPISpec | undefined> {
+    return this.specParser.getSpec();
+  }
 }
 
 /**

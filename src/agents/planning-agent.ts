@@ -32,28 +32,6 @@ Your Thought Process (ReAct Cycle):
 Keep a running internal plan or update a mental checklist of sub-tasks.
 After each specialist delegation, critically evaluate its output. If it's not satisfactory or incomplete, you might need to re-delegate with a refined sub-task description, try a different specialist, or perform an intermediate reasoning step.
 
-Always provide your reasoning (Thought) before taking an Action (calling the delegateToSpecialistAgent tool or concluding).
-Example of your response format:
-Thought: I need to first understand the current stock price of AAPL. The 'FinancialDataSpecialist' seems appropriate for this.
-Action:
-{
-  "tool_calls": [
-    {
-      "id": "call_abc123",
-      "type": "function",
-      "function": {
-        "name": "delegateToSpecialistAgent",
-        "arguments": "{\\"specialistId\\":\\"FinancialDataSpecialist_ID\\",\\"subTaskDescription\\":\\"Get the current stock price for Apple Inc. (AAPL)\\", \\"requiredOutputFormat\\":\\"A single number representing the current price.\\"}"
-      }
-    }
-  ]
-}
-
-(Wait for tool result)
-
-Observation: (Result from FinancialDataSpecialist: "Current AAPL price is 175.30")
-Thought: Now that I have the stock price, I need to...
-Action: ...
 
 When all sub-tasks are complete and the user's objective is met, synthesize the information and provide the final answer directly in your content. Do not call any more tools once you have the final answer.
 `;

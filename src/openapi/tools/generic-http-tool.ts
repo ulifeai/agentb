@@ -84,7 +84,7 @@ export class GenericHttpApiTool implements ITool<IGenericHttpToolInput, any> {
       },
       {
         name: 'requestBody',
-        type: 'any', // Can be object, array, string, number, boolean depending on Content-Type
+        type: 'object', // Can be object, array, string, number, boolean depending on Content-Type
         description:
           'The request body, typically a JSON object for POST, PUT, PATCH methods. Structure this according to the API documentation for the specific operation. For GET or DELETE, this is usually omitted.',
         required: false,

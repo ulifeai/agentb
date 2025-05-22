@@ -119,7 +119,7 @@ export interface AgentRunConfig {
 export const DEFAULT_AGENT_RUN_CONFIG: Partial<AgentRunConfig> = {
   temperature: 0.7,
   toolChoice: 'auto',
-  maxToolCallContinuations: 5,
+  maxToolCallContinuations: 10,
   responseProcessorConfig: {
     enableNativeToolCalling: true,
     enableXmlToolCalling: false,

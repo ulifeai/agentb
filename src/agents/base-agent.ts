@@ -65,7 +65,7 @@ export class BaseAgent implements IAgent {
     // - On subsequent cycles (after tool calls), it's the `LLMMessage[]` of tool results.
     let currentCycleInputMessages: LLMMessage[] = [...initialTurnMessages];
     let loopIterationGuard = 0; // Safety counter to prevent runaway loops.
-    const MAX_CONTINUATIONS = runConfig.maxToolCallContinuations !== undefined ? runConfig.maxToolCallContinuations : 5;
+    const MAX_CONTINUATIONS = runConfig.maxToolCallContinuations !== undefined ? runConfig.maxToolCallContinuations : 10;
     const MAX_ITERATIONS_SAFETY_BUFFER = 5; // Additional buffer beyond configured continuations.
     const MAX_TOTAL_ITERATIONS = MAX_CONTINUATIONS + MAX_ITERATIONS_SAFETY_BUFFER;
     
@@ -246,6 +246,14 @@ export class BaseAgent implements IAgent {
         );
         yield this.createEventHelper('thread.message.completed', runId, threadId, { message: finalSavedAssistantMsg });
         
+        console.debug(
+          `[BaseAgent: ${runId}] LLM stream finished with reason: ${llmStreamFinishReason}`,
+          {
+            assistantResponseText: assistantResponseTextAccumulator,
+            toolCalls: JSON.stringify(detectedToolCallsThisCycle),
+          }
+        );
+
         // --- 6. Decide Next Step Based on LLM's Finish Reason ---
         if (llmStreamFinishReason === 'tool_calls' && detectedToolCallsThisCycle.length > 0) {
           // Check if max tool call continuations limit is reached.

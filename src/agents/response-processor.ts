@@ -107,6 +107,12 @@ export class LLMResponseProcessor {
           yield { type: 'text_chunk', text: chunk.content };
         }
 
+      
+        // Check if we have any tool calls in this chunk
+        // if (chunk.tool_calls && chunk.tool_calls.length > 0) {
+        //   console.debug(`[LLMResponseProcessor] Found ${chunk.tool_calls.length} with name ${chunk.tool_calls[0].function?.name} tool calls in chunk`);
+        // }
+
         if (this.config.enableNativeToolCalling && chunk.tool_calls) {
           for (const tcChunk of chunk.tool_calls) {
             const index = tcChunk.index;

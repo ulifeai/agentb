@@ -10,6 +10,7 @@ import { LLMToolCall } from '../llm/types'; // Assuming LLMToolCall includes id,
 import { ToolExecutorConfig } from './config';
 import { ToolNotFoundError, ApplicationError, ValidationError } from '../core/errors';
 import Ajv from 'ajv';
+import { JSONSchema7 } from 'json-schema';
 
 export class ToolExecutor {
   private toolProvider: IToolProvider;
@@ -52,6 +53,53 @@ export class ToolExecutor {
       return Promise.all(executionPromises);
     }
   }
+
+  // Helper function to resolve schema references
+  private resolveSchema(schema: any, rootSchema: any): any {
+    if (!schema || typeof schema !== 'object') return schema;
+    
+    // Handle direct $ref
+    if (schema.$ref) {
+      const refPath = schema.$ref;
+      if (!refPath.startsWith('#')) {
+        console.warn(`[ToolExecutor] External $ref not supported: ${refPath}`);
+        return schema;
+      }
+      
+      // Remove the leading # and split the path
+      const path = refPath.slice(1);
+      if (!path) {
+        console.warn(`[ToolExecutor] Invalid $ref path: ${refPath}`);
+        return schema;
+      }
+      
+      const parts = path.split('/').filter(Boolean); // Filter out empty strings
+      let resolvedItem: any = rootSchema;
+      
+      
+      
+      for (const part of parts) {
+        const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
+        if (resolvedItem && typeof resolvedItem === 'object' && decodedPart in resolvedItem) {
+          resolvedItem = resolvedItem[decodedPart];
+          console.log(`[ToolExecutor] Found part "${decodedPart}":`, JSON.stringify(resolvedItem, null, 2));
+        } else {
+          console.warn(`[ToolExecutor] Failed to resolve $ref "${refPath}": part "${decodedPart}" not found in path "${path}"`);
+          console.log(`[ToolExecutor] Available keys in current level:`, Object.keys(resolvedItem || {}));
+          return schema;
+        }
+      }
+      
+      return resolvedItem;
+    }
+    
+    // Recursively resolve references in nested objects and arrays
+    const resolved: any = Array.isArray(schema) ? [] : {};
+    for (const key in schema) {
+      resolved[key] = this.resolveSchema(schema[key], rootSchema);
+    }
+    return resolved;
+  };
   
   /**
   * Executes a single tool call.
@@ -105,8 +153,130 @@ export class ToolExecutor {
           }
           // TODO: Implement JSON schema validation using a library like AJV if paramDef.schema is present
           if (paramDef.schema) {
-            const ajv = new Ajv();
-            const validate = ajv.compile(paramDef.schema);
+            const ajv = new Ajv({
+              allErrors: true,
+              verbose: true,
+              formats: {
+                // Numeric formats
+                float: true,
+                double: true,
+                int32: true,
+                int64: true,
+                byte: true,
+                
+                // String formats
+                date: true,
+                'date-time': true,
+                time: true,
+                duration: true,
+                email: true,
+                hostname: true,
+                ipv4: true,
+                ipv6: true,
+                uri: true,
+                'uri-reference': true,
+                'uri-template': true,
+                url: true,
+                uuid: true,
+                password: true,
+                
+                // Binary formats
+                binary: true,
+                base64: true,
+                
+                // Additional formats
+                json: true,
+                regex: true
+              }
+            });
+            
+            // Get the complete schema context from the tool definition
+            const toolDefinition = await tool.getDefinition();
+            
+            // Get the OpenAPI spec from the tool if it's an OpenAPI tool
+            let rootSchema = {
+              components: {
+                schemas: {}
+              }
+            };
+            
+            // Try to get schemas from the OpenAPI spec if available
+            if ('getOpenAPISpec' in tool) {
+              const spec = await (tool as any).getOpenAPISpec();
+              if (spec?.components?.schemas) {
+                rootSchema.components.schemas = spec.components.schemas;
+              }
+            }
+            
+            // Add all schemas to Ajv first
+            if (rootSchema.components?.schemas) {
+              Object.entries(rootSchema.components.schemas).forEach(([schemaId, schema]) => {
+                // Register each schema with its full path as ID
+                const schemaPath = `#/components/schemas/${schemaId}`;
+                ajv.addSchema(schema as JSONSchema7, schemaPath);
+              });
+            }
+            
+            // Helper function to resolve schema references
+            const resolveSchema = (schema: any, rootSchema: any): any => {
+              if (!schema || typeof schema !== 'object') return schema;
+              
+              // Handle direct $ref
+              if (schema.$ref) {
+                const refPath = schema.$ref;
+                if (!refPath.startsWith('#')) {
+                  console.warn(`[ToolExecutor] External $ref not supported: ${refPath}`);
+                  return schema;
+                }
+                
+                // Remove the leading # and split the path
+                const path = refPath.slice(1);
+                if (!path) {
+                  console.warn(`[ToolExecutor] Invalid $ref path: ${refPath}`);
+                  return schema;
+                }
+                
+                const parts = path.split('/').filter(Boolean); // Filter out empty strings
+                let resolvedItem: any = rootSchema;
+                
+              
+                
+                for (const part of parts) {
+                  const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
+                  if (resolvedItem && typeof resolvedItem === 'object' && decodedPart in resolvedItem) {
+                    resolvedItem = resolvedItem[decodedPart];
+                    console.log(`[ToolExecutor] Found part "${decodedPart}":`, JSON.stringify(resolvedItem, null, 2));
+                  } else {
+                    console.warn(`[ToolExecutor] Failed to resolve $ref "${refPath}": part "${decodedPart}" not found in path "${path}"`);
+                    console.log(`[ToolExecutor] Available keys in current level:`, Object.keys(resolvedItem || {}));
+                    return schema;
+                  }
+                }
+                
+                return resolvedItem;
+              }
+              
+              // Recursively resolve references in nested objects and arrays
+              const resolved: any = Array.isArray(schema) ? [] : {};
+              for (const key in schema) {
+                resolved[key] = resolveSchema(schema[key], rootSchema);
+              }
+              return resolved;
+            };
+            
+            // Resolve any references in the schema
+            const resolvedSchema = this.resolveSchema(paramDef.schema, rootSchema);
+            
+            // Add the resolved schema with a unique ID
+            const schemaId = `requestBody_${paramDef.name}`;
+            ajv.addSchema(resolvedSchema as JSONSchema7, schemaId);
+            
+            // Get the compiled schema by ID
+            const validate = ajv.getSchema(schemaId);
+            if (!validate) {
+              throw new Error(`Failed to compile schema with ID: ${schemaId}`);
+            }
+            
             if (!validate(argValue)) {
               validationErrors.push(`Parameter "${paramDef.name}" failed schema validation: ${ajv.errorsText(validate.errors)}`);
             }

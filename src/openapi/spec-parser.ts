@@ -281,5 +281,9 @@ export class OpenAPISpecParser {
       
       return resolvedItem;
     }
+
+    public getSpec(): OpenAPISpec {
+      return this.spec;
+    }
   }
   

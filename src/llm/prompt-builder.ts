@@ -248,12 +248,7 @@ To delegate effectively using the "${ROUTER_TOOL_NAME}" tool, follow these steps
 4.  Determine the 'toolParameters' required by that specific 'toolName', based on its listed parameters.
 5.  Invoke the "${ROUTER_TOOL_NAME}" tool with 'toolSetId', 'toolName', and 'toolParameters'.
   
-Example: If a user wants to 'get details for pet ID 123', and a Toolset with ID 'PetQueries' has a tool 'getPetById' that takes a 'petId' parameter, you would call:
-  ${ROUTER_TOOL_NAME}({
-  "toolSetId": "PetQueries",
-  "toolName": "getPetById",
-  "toolParameters": { "petId": 123 }
-})
+
   
 Ensure the 'toolName' you choose is explicitly listed as available for the selected 'toolSetId'.
 If no suitable Toolset or tool exists, clearly inform the user.

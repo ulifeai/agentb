@@ -82,15 +82,15 @@ export class OpenAIAdapter implements ILLMClient {
 
     const modelToUse = options.model || this.defaultModel;
 
-    console.info(`[OpenAIAdapter] Sending request to OpenAI with model: ${modelToUse}`);
-    console.debug('[OpenAIAdapter] Request details:', {
-      messages,
-      options: {
-        ...options,
-        tools: options.tools ? `${options.tools.length} tools configured` : 'no tools',
-        tool_choice: options.tool_choice || 'none'
-      }
-    });
+    // console.info(`[OpenAIAdapter] Sending request to OpenAI with model: ${modelToUse}`);
+    // console.debug('[OpenAIAdapter] Request details:', {
+    //   messages,
+    //   options: {
+    //     ...options,
+    //     tools: options.tools ? `${options.tools.length} tools configured` : 'no tools',
+    //     tool_choice: options.tool_choice || 'none'
+    //   }
+    // });
 
     let preparedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages.map(
       (msg) => this.mapToOpenAIMessageParam(msg) // Use the corrected mapping function
@@ -121,6 +121,16 @@ export class OpenAIAdapter implements ILLMClient {
       tool_choice: options.tool_choice ? this.mapToOpenAIToolChoice(options.tool_choice) : undefined,
       ...otherOptions,
     };
+
+    if (options.tools) {
+      console.info(`[OpenAIAdapter] Tools configured:`, options.tools.map(tool => ({
+        type: tool.type,
+        function: {
+          name: tool.function.name,
+          description: tool.function.description?.slice(0, 100) + '...' // Truncate long descriptions
+        }
+      })));
+    }
 
     if (options.stream) {
       requestPayload.stream = true;
@@ -252,6 +262,7 @@ export class OpenAIAdapter implements ILLMClient {
     try {
       const stream = await this.openai.chat.completions.create(requestPayload);
       for await (const chunk of stream) {
+        // console.log('[OpenAIAdapter] Stream chunk:', JSON.stringify(chunk, null, 2));
         // Check for chunks that signal termination but might have empty delta
         if (this.isStreamTerminationChunk(chunk) && chunk.choices[0].finish_reason) {
           yield { finish_reason: chunk.choices[0].finish_reason, usage: chunk.usage ?? undefined };
@@ -271,7 +282,6 @@ export class OpenAIAdapter implements ILLMClient {
         // Only assign content if it's not undefined. Null is a valid value from delta.
         if (delta.content !== undefined) mappedChunk.content = delta.content;
         
-
 
         if (delta.tool_calls) {
           mappedChunk.tool_calls = delta.tool_calls

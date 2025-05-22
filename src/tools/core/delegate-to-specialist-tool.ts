@@ -147,7 +147,7 @@ export class DelegateToSpecialistTool implements ITool {
       ...baseSubAgentConfig, // Inherit defaults (like model, temp, etc.)
       model: baseSubAgentConfig.model, // Ensure model is set
       systemPrompt: specialistSystemPrompt,
-      maxToolCallContinuations: Math.max(0, (baseSubAgentConfig.maxToolCallContinuations || 5) - 2), // Specialists might have fewer retries
+      maxToolCallContinuations: Math.max(0, (baseSubAgentConfig.maxToolCallContinuations || 10) - 2), // Specialists might have fewer retries
       // Override other configs if specialists should behave differently
       responseProcessorConfig: baseSubAgentConfig.responseProcessorConfig,
       toolExecutorConfig: baseSubAgentConfig.toolExecutorConfig,
