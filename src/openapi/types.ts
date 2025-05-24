@@ -5,6 +5,8 @@
  * Based on user-provided openapi.txt
  */
 
+import { IAgentContext } from '../agents/types';
+
 // Standard OpenAPI v3 Interfaces (simplified for this context)
 
 /**
@@ -164,8 +166,11 @@ export interface ConnectorOperation {
  */
 export interface BearerTokenAuth {
   type: 'bearer';
-  /** Static token string or a function (async or sync) to retrieve it. */
-  token: string | (() => string | Promise<string>);
+  /** 
+   * Static token string or a function (async or sync) to retrieve it.
+   * The function can optionally receive the agent context to access request-specific details.
+   */
+  token: string | ((agentContext?: IAgentContext) => string | Promise<string>);
 }
 
 /**
@@ -192,6 +197,15 @@ export interface NoAuth {
  */
 export type ConnectorAuthentication = BearerTokenAuth | ApiKeyAuth | NoAuth;
 /* | OAuth2Auth | BasicAuth ... */ // Future expansion
+
+/**
+ * Object returned by `authorizeRequest` to provide dynamic, per-request
+ * authentication details that can override static configurations.
+ * Keys are provider IDs (from ToolProviderSourceConfig.id).
+ */
+export interface PerProviderAuthOverrides {
+  [providerId: string]: ConnectorAuthentication;
+}
 
 /**
  * Base options shared by various components like OpenAPIConnector, APIToolManager, and AgentOrchestrator.

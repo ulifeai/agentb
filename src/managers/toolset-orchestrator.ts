@@ -22,8 +22,12 @@ export interface ToolProviderSourceConfig {
   id: string;
   /** Type of the provider, defaults to 'openapi'. */
   type?: 'openapi'; // Extendable for other provider types in the future
-  /** Options for the OpenAPIConnector if type is 'openapi'. */
-  openapiConnectorOptions: OpenAPIConnectorOptions;
+  /** 
+   * Options for the OpenAPIConnector if type is 'openapi'.
+   * Note: sourceId is NOT part of this user-facing options object.
+   * It will be derived from the ToolProviderSourceConfig.id.
+   */
+  openapiConnectorOptions: Omit<OpenAPIConnectorOptions, 'sourceId'>;
   /**
    * Strategy for creating toolsets from this provider.
    * - 'byTag': Create one IToolSet per discovered OpenAPI tag.
@@ -46,6 +50,8 @@ export class ToolsetOrchestrator {
   private providerConfigs: ToolProviderSourceConfig[];
   private initializedToolsets: Map<string, IToolSet> = new Map(); // toolsetId -> IToolSet
   private initializationPromise: Promise<void> | null = null;
+  // Add a new private member to store the initialized providers
+  private initializedProviders: IToolProvider[] = [];
 
   constructor(providerConfigs: ToolProviderSourceConfig[]) {
     if (!providerConfigs || providerConfigs.length === 0) {
@@ -57,6 +63,7 @@ export class ToolsetOrchestrator {
   private async _initialize(): Promise<void> {
     console.info(`[ToolsetOrchestrator] Initializing with ${this.providerConfigs.length} provider source(s)...`);
     this.initializedToolsets.clear();
+    this.initializedProviders = []; // Clear previously initialized providers
 
     for (const config of this.providerConfigs) {
       if (config.type === undefined || config.type === 'openapi') {
@@ -80,36 +87,43 @@ export class ToolsetOrchestrator {
     }
   }
 
-  private async initializeOpenApiProvider(config: ToolProviderSourceConfig): Promise<void> {
+  private async initializeOpenApiProvider(
+    config: ToolProviderSourceConfig,
+  ): Promise<void> {
     try {
-      // First, create a connector to get the full spec and all tags.
-      // This initial connector might not apply any tag filter yet.
-      const tempFullSpecConnector = new OpenAPIConnector({
-        spec: config.openapiConnectorOptions.spec,
-        specUrl: config.openapiConnectorOptions.specUrl,
-        // Auth and businessContextText not strictly needed just for spec parsing,
-        // but good to pass if they might influence spec interpretation (unlikely).
+      // Prepare the full options for the OpenAPIConnector, ensuring sourceId is set
+      const finalConnectorOptions: OpenAPIConnectorOptions = {
+        ...config.openapiConnectorOptions,
+        sourceId: config.id
+      };
+
+      const tempSpecConnectorForParsing = new OpenAPIConnector({
+        // For this temporary parser, sourceId is less critical but good practice
+        sourceId: `${config.id}-specparser`,
+        spec: finalConnectorOptions.spec,
+        specUrl: finalConnectorOptions.specUrl,
+        authentication: { type: 'none' },
       });
-      await tempFullSpecConnector.ensureInitialized();
-      const spec = tempFullSpecConnector.getFullSpec(); // Get the loaded spec
-      const specParser = tempFullSpecConnector.getSpecParser(); // This parser has no tag filter
+
+      await tempSpecConnectorForParsing.ensureInitialized();
+      const spec = tempSpecConnectorForParsing.getFullSpec();
+      const specParser = tempSpecConnectorForParsing.getSpecParser();
       const allTags = specParser.getAllTags();
       const apiTitle = spec.info.title || config.id;
-
       let strategy = config.toolsetCreationStrategy;
-      if (!strategy) {
-        strategy = allTags.length > 0 ? 'byTag' : 'allInOne';
-      }
+      if (!strategy) strategy = allTags.length > 0 ? 'byTag' : 'allInOne';
 
       if (strategy === 'byTag' && allTags.length > 0) {
         for (const tag of allTags) {
           const taggedConnector = new OpenAPIConnector({
-            ...config.openapiConnectorOptions,
-            spec, // Pass the already loaded spec object
-            specUrl: undefined, // Avoid re-fetching
+            ...finalConnectorOptions,
+            spec,
+            specUrl: undefined,
             tagFilter: tag,
           });
           await taggedConnector.ensureInitialized();
+          // STORE THIS PROVIDER
+          this.initializedProviders.push(taggedConnector);
           const tools = await taggedConnector.getTools();
           if (tools.length > 0) {
             const toolsetId = sanitizeIdForLLM(`${config.id}_tag_${tag}`);
@@ -142,12 +156,14 @@ export class ToolsetOrchestrator {
           );
         }
         const connector = new OpenAPIConnector({
-          ...config.openapiConnectorOptions,
-          spec, // Pass the loaded spec
+          ...finalConnectorOptions,
+          spec,
           specUrl: undefined,
-          tagFilter: undefined, // All operations
+          tagFilter: undefined,
         });
         await connector.ensureInitialized();
+        // STORE THIS PROVIDER
+        this.initializedProviders.push(connector);
         const tools = await connector.getTools();
 
         if (tools.length > 0) {
@@ -194,6 +210,16 @@ export class ToolsetOrchestrator {
     console.info(
       `[ToolsetOrchestrator] Added toolset: "${toolset.name}" (ID: ${toolset.id}) with ${toolset.tools.length} tool(s).`
     );
+  }
+
+  /**
+   * Gets all initialized IToolProvider instances that the orchestrator has configured.
+   * These are typically OpenAPIConnector instances.
+   * @returns {Promise<IToolProvider[]>} A promise that resolves to an array of IToolProvider instances.
+   */
+  public async getToolProviders(): Promise<IToolProvider[]> {
+    await this.ensureInitialized();
+    return [...this.initializedProviders]; // Return a copy
   }
 
   /**
@@ -271,7 +297,7 @@ export class ToolsetOrchestrator {
     let reinitializeNeeded = false;
     for (const config of this.providerConfigs) {
       if (config.type === 'openapi' || config.type === undefined) {
-        const newAuthConfig = newAuthCallback(config.id, config.openapiConnectorOptions);
+        const newAuthConfig = newAuthCallback(config.id, {...config.openapiConnectorOptions, sourceId: config.id});
         if (
           newAuthConfig &&
           JSON.stringify(config.openapiConnectorOptions.authentication) !== JSON.stringify(newAuthConfig)

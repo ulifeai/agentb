@@ -82,15 +82,15 @@ export class OpenAIAdapter implements ILLMClient {
 
     const modelToUse = options.model || this.defaultModel;
 
-    // console.info(`[OpenAIAdapter] Sending request to OpenAI with model: ${modelToUse}`);
-    // console.debug('[OpenAIAdapter] Request details:', {
-    //   messages,
-    //   options: {
-    //     ...options,
-    //     tools: options.tools ? `${options.tools.length} tools configured` : 'no tools',
-    //     tool_choice: options.tool_choice || 'none'
-    //   }
-    // });
+    console.info(`[OpenAIAdapter] Sending request to OpenAI with model: ${modelToUse}`);
+    console.debug('[OpenAIAdapter] Request details:', JSON.stringify({
+      messages,
+      options: {
+        ...options,
+        tools: options.tools ? `${options.tools.length} tools configured` : 'no tools',
+        tool_choice: options.tool_choice || 'none'
+      }
+    }));
 
     let preparedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = messages.map(
       (msg) => this.mapToOpenAIMessageParam(msg) // Use the corrected mapping function

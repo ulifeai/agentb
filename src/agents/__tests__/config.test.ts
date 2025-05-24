@@ -27,7 +27,7 @@ import {
       });
   
       it('should have default maxToolCallContinuations', () => {
-        expect(DEFAULT_AGENT_RUN_CONFIG.maxToolCallContinuations).toBe(5);
+        expect(DEFAULT_AGENT_RUN_CONFIG.maxToolCallContinuations).toBe(10);
       });
   
       it('should have default responseProcessorConfig', () => {
