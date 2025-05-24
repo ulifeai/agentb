@@ -177,7 +177,8 @@ export class ApiInteractionManager {
         // Should be caught by constructor but good for robustness
         throw new InvalidStateError('ToolsetOrchestratorConfig is missing for initialization.');
       }
-      this.toolsetOrchestrator = new ToolsetOrchestrator(this.options.toolsetOrchestratorConfig);
+      // Pass this.llmClient to the ToolsetOrchestrator constructor
+      this.toolsetOrchestrator = new ToolsetOrchestrator(this.options.toolsetOrchestratorConfig, this.llmClient);
       await this.toolsetOrchestrator.ensureInitialized();
       const individualProviders = await this.toolsetOrchestrator.getToolProviders();
       if (individualProviders && individualProviders.length > 0) {

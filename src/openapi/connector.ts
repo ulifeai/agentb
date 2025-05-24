@@ -46,8 +46,10 @@ export interface OpenAPIConnectorOptions extends BaseOpenAPIConnectorOptions {
 
 /**
  * Represents a single API operation exposed as an ITool.
+ * This class is responsible for creating a tool definition from an OpenAPI operation
+ * and for executing the operation when the tool is called.
  */
-class OpenAPIOperationTool implements ITool<Record<string, any>, any> {
+export class OpenAPIOperationTool implements ITool<Record<string, any>, any> {
   public operation: ConnectorOperation; // Make public
   private specParser: OpenAPISpecParser;
   private connector: OpenAPIConnector;
