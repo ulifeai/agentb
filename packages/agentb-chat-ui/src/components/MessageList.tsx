@@ -1,24 +1,39 @@
+// packages/agentb-chat-ui/src/components/MessageList.tsx
 import React, { useEffect, useRef } from 'react';
 import { ChatMessage } from './types';
 import { MessageItem } from './MessageItem';
+import './MessageList.css';
 
 interface MessageListProps {
   messages: ChatMessage[];
 }
 
 export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
-  const endOfMessagesRef = useRef<null | HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    scrollToBottom();
+  }, [messages]); // Scroll whenever messages change
+
+  if (messages.length === 0) {
+    return (
+      <div className="message-list message-list__empty">
+        <span className="message-list__empty-icon">👋</span>
+        <p>No messages yet. Say hello!</p>
+      </div>
+    );
+  }
 
   return (
     <div className="message-list">
       {messages.map((msg) => (
         <MessageItem key={msg.id} message={msg} />
       ))}
-      <div ref={endOfMessagesRef} />
+      <div ref={messagesEndRef} />
     </div>
   );
 };
