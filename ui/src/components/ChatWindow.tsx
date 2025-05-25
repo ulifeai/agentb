@@ -29,7 +29,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       )}
       <MessageInput
         onSendMessage={onSendMessage}
-        disabled={isSending}
+        isLoading={isSending??false}
         placeholder={messageInputPlaceholder}
       />
     </div>
