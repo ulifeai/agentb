@@ -1,15 +1,20 @@
 {
-  "name": "agentb",
-  "version": "0.1.0",
-  "description": "A flexible and extensible TypeScript framework for building AI agents with LLMs and tools.",
+  "name": "@ulifeai/agentb",
+  "version": "0.1.0-beta",
+  "description": "The easiest way to integrate AI agents with your API tools in your app.",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/index.d.ts",
+  "workspaces": [
+    "ui"
+  ],
   "scripts": {
-    "build": "npm run clean && npm run build:cjs && npm run build:esm",
+    "build": "npm run clean && npm run build:core && npm run build:ui",
+    "build:core": "npm run build:cjs && npm run build:esm",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:esm": "tsc -p tsconfig.esm.json",
-    "clean": "rm -rf dist",
+    "build:ui": "cd ui && npm run build",
+    "clean": "rm -rf dist && cd ui && rm -rf dist",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "jest --selectProjects all --onlyFailures",
@@ -23,7 +28,9 @@
     "test:ui": "jest --selectProjects ui",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+
     "prepublishOnly": "npm run build",
+
     "start:example:petstore": "node dist/examples/run-local-openapi-agent.js",
     "dev:example:petstore": "nodemon src/examples/run-local-openapi-agent.ts"
   },

@@ -5,13 +5,14 @@ import './MessageInput.css';
 interface MessageInputProps {
   onSendMessage: (text: string) => void;
   isLoading: boolean;
+  placeholder?: string | undefined
 }
 
 // Simple Send Icon (replace with a proper icon library component)
 const SendIcon = () => <span className="message-input-form__button-icon">➤</span>;
 
 
-export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoading }) => {
+export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoading, placeholder }) => {
   const [inputValue, setInputValue] = useState('');
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -37,7 +38,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, isLoa
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Type your message..."
+        placeholder={placeholder ?? "Type your message..."}
         disabled={isLoading}
         aria-label="Chat message input"
       />
