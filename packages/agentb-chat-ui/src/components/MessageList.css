@@ -1,0 +1,23 @@
+/* packages/agentb-chat-ui/src/components/MessageList.css */
+.message-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .message-list__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #888;
+    text-align: center;
+  }
+  
+  .message-list__empty-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+  }
