@@ -40,6 +40,7 @@ export type {
   NoAuth,
   ConnectorAuthentication,
   BaseOpenAPIConnectorOptions,
+  PerProviderAuthOverrides
 } from './openapi/types';
 export { fetchSpec, headersToObject } from './openapi/utils';
 
@@ -130,5 +131,6 @@ export type { ApiInteractionManagerOptions, ApiInteractionMode } from './manager
 // export type { AgentOrchestratorOptions, SpecialistAgent } from './managers/orchestrator';
 // export { APIToolManager } from './managers/tool-manager';
 // export type { APIToolManagerOptions, APIToolMode as OldAPIToolMode } from './managers/tool-manager';
+export * from './facades/agentb';
 
 console.log('AI Agent Framework Core Loaded.'); // Optional: for build verification
