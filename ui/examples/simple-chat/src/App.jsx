@@ -1,7 +1,7 @@
 // Example: in your main App.tsx
 import React from 'react';
 import { AgentBChat } from '../../../src'; // Adjust import path
-// import '../../dist/main.css'; // Assuming you build CSS to dist
+import '../../../dist/styles.css'; // Assuming you build CSS to dist
 
 function App() {
   return (
