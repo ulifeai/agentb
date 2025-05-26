@@ -25,6 +25,7 @@ import { MemoryStorage } from '../../threads/storage/memory-storage';
 */
 export interface DelegateToolDependencies {
   toolsetOrchestrator: ToolsetOrchestrator;
+  masterToolProvider?: IToolProvider; // Changed from IToolProvider to allow undefined initially
   llmClient: ILLMClient;
   messageStorage: IMessageStorage; // For sub-agent's potential message persistence
   // Factory or constructor for the worker agent implementation

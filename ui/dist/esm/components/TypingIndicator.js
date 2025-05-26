@@ -1,0 +1,6 @@
+"use client";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+export function TypingIndicator() {
+    return (_jsxs("div", { className: "flex items-start space-x-4", children: [_jsx("div", { className: "w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg", children: _jsx("svg", { className: "w-4 h-4 text-white", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: _jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M13 10V3L4 14h7v7l9-11h-7z" }) }) }), _jsx("div", { className: "flex-1 max-w-3xl", children: _jsx("div", { className: "bg-white border border-gray-200 rounded-2xl rounded-tl-md px-6 py-4 shadow-sm", children: _jsxs("div", { className: "flex items-center space-x-2", children: [_jsxs("div", { className: "flex space-x-1", children: [_jsx("div", { className: "w-2 h-2 bg-gray-400 rounded-full animate-bounce" }), _jsx("div", { className: "w-2 h-2 bg-gray-400 rounded-full animate-bounce", style: { animationDelay: "0.1s" } }), _jsx("div", { className: "w-2 h-2 bg-gray-400 rounded-full animate-bounce", style: { animationDelay: "0.2s" } })] }), _jsx("span", { className: "text-sm text-gray-500", children: "Assistant is thinking..." })] }) }) })] }));
+}
+//# sourceMappingURL=TypingIndicator.js.map

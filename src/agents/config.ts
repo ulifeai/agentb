@@ -5,6 +5,7 @@
  */
 
 import { LLMToolChoice } from '../llm/types';
+import { PerProviderAuthOverrides } from '../openapi/types';
 
 /**
  * Configuration for the LLMResponseProcessor, determining how LLM responses
@@ -105,6 +106,19 @@ export interface AgentRunConfig {
    * @default true
    */
   enableContextManagement?: boolean;
+
+  /**
+   * Optional: Per-provider authentication details to override static tool configurations for this specific run.
+   * Keys are provider IDs (from ToolProviderSourceConfig.id).
+   * Typically populated by an HTTP handler from request-specific auth info.
+   */
+  requestAuthOverrides?: PerProviderAuthOverrides;
+
+  /**
+   * Optional: General-purpose request context that can be used by tools or the agent.
+   * Avoid using this for primary authentication if requestAuthOverrides is available.
+   */
+  requestContext?: Record<string, any>;
 
   /**
    * Any other model-specific or custom parameters for the agent run.

@@ -57,7 +57,7 @@ describe('ToolExecutor', () => {
     expect(results[0].toolCallId).toBe('call1');
     expect(results[0].toolName).toBe('tool1');
     expect(results[0].result).toEqual(expectedResult);
-    expect(mockTool1Execute).toHaveBeenCalledWith({ param: 'value' });
+    expect(mockTool1Execute).toHaveBeenCalledWith({ param: 'value' }, undefined);
   });
 
   it('should return error result if tool is not found', async () => {

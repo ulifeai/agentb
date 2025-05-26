@@ -6,6 +6,8 @@
  * and LLM integration layers.
  */
 
+import { IAgentContext } from '../agents/types';
+
 /**
  * Represents a parameter for a tool.
  */
@@ -76,9 +78,10 @@ export interface ITool<Input = Record<string, any>, OutputData = any> {
   /**
    * Executes the tool with the given input.
    * @param {Input} input - The input parameters for the tool, matching the structure defined by `parameters` in its `IToolDefinition`.
+   * @param {IAgentContext} [agentContext] - Optional: The context of the agent run, providing access to shared services or request-specific data.
    * @returns {Promise<IToolResult<OutputData>>} A promise that resolves with the tool's result.
    */
-  execute(input: Input): Promise<IToolResult<OutputData>>;
+  execute(input: Input, agentContext?: IAgentContext): Promise<IToolResult<OutputData>>;
 }
 
 /**

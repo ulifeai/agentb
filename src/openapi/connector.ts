@@ -16,6 +16,7 @@ import { OpenAPISpecParser } from './spec-parser';
 import { fetchSpec, headersToObject } from './utils';
 import { ITool, IToolDefinition, IToolParameter, IToolProvider, IToolResult } from '../core/tool';
 import { sanitizeIdForLLM } from '../core/utils';
+import { IAgentContext } from '../agents/types';
 import {
   GenericHttpApiTool,
   GENERIC_HTTP_TOOL_NAME as GENERIC_TOOL_ACTUAL_NAME,
@@ -26,6 +27,11 @@ import {
  * Options for configuring an `OpenAPIConnector` instance.
  */
 export interface OpenAPIConnectorOptions extends BaseOpenAPIConnectorOptions {
+  /**
+   * The unique identifier for this connector instance, matching the ToolProviderSourceConfig.id.
+   * This is used to look up provider-specific authentication overrides.
+   */
+  sourceId: string;
   /**
    * If set, this connector instance specializes in operations associated with this tag.
    * Operations will be filtered accordingly, and the GenericHttpApiTool might not be added.
@@ -40,8 +46,10 @@ export interface OpenAPIConnectorOptions extends BaseOpenAPIConnectorOptions {
 
 /**
  * Represents a single API operation exposed as an ITool.
+ * This class is responsible for creating a tool definition from an OpenAPI operation
+ * and for executing the operation when the tool is called.
  */
-class OpenAPIOperationTool implements ITool<Record<string, any>, any> {
+export class OpenAPIOperationTool implements ITool<Record<string, any>, any> {
   public operation: ConnectorOperation; // Make public
   private specParser: OpenAPISpecParser;
   private connector: OpenAPIConnector;
@@ -151,6 +159,7 @@ export class OpenAPIConnector implements IToolProvider {
   private businessContextText?: string; // Keep for prompt generation context
   private tagFilter?: string;
   private includeGenericTool: boolean;
+  private sourceId: string; // Add sourceId property
 
   private _isInitialized: boolean = false;
   private initializationPromise: Promise<void>;
@@ -160,6 +169,10 @@ export class OpenAPIConnector implements IToolProvider {
     if (!options.specUrl && !options.spec) {
       throw new Error('OpenAPIConnector: "specUrl" or "spec" must be provided in options.');
     }
+    if (!options.sourceId) {
+      throw new Error('OpenAPIConnector: "sourceId" is required in options.');
+    }
+    this.sourceId = options.sourceId;
     this.authentication = options.authentication || { type: 'none' };
     this.businessContextText = options.businessContextText;
     this.tagFilter = options.tagFilter;
@@ -276,8 +289,9 @@ export class OpenAPIConnector implements IToolProvider {
 
   /** @internal */
   async executeSpecificOperationInternal(
-    sanitizedToolName: string, // This is the sanitized operationId
-    args: Record<string, any>
+    sanitizedToolName: string,
+    args: Record<string, any>,
+    agentContext?: IAgentContext
   ): Promise<IToolResult<any>> {
     this.assertInitialized();
     // Find the operation definition by its *original* operationId,
@@ -312,7 +326,6 @@ export class OpenAPIConnector implements IToolProvider {
     //
     // QUICK FIX for now: Iterate `this.providedTools` to find the `OpenAPIOperationTool` whose definition name matches
     // `sanitizedToolName`, then get its internal `operation` object.
-
     let operationToolInstance: OpenAPIOperationTool | undefined;
     for (const tool of this.providedTools) {
         if (tool instanceof OpenAPIOperationTool && tool.getDefinition().name === sanitizedToolName) {
@@ -414,7 +427,6 @@ export class OpenAPIConnector implements IToolProvider {
 
     const baseUrl = this.getBaseUrl();
     const url = new URL(operationPathString, baseUrl);
-
     // Append query parameters to URL
     Object.entries(queryForUrl).forEach(([key, value]) => {
       if (Array.isArray(value)) {
@@ -440,7 +452,7 @@ export class OpenAPIConnector implements IToolProvider {
     }
 
     // Apply authentication
-    const authResult = await this.applyAuthentication(headersForRequest, url.toString());
+    const authResult = await this.applyAuthentication(headersForRequest, url.toString(), agentContext);
     options.headers = new Headers(headersForRequest); // Update headers if applyAuthentication modified them
 
     // Make the API call
@@ -448,7 +460,10 @@ export class OpenAPIConnector implements IToolProvider {
   }
 
   /** @internal */
-  async executeGenericOperationInternal(args: IGenericHttpToolInput): Promise<IToolResult<any>> {
+  async executeGenericOperationInternal(
+    args: IGenericHttpToolInput,
+    agentContext?: IAgentContext
+  ): Promise<IToolResult<any>> {
     this.assertInitialized();
     const { method, path: relativePath, queryParams: rawQueryParams, headers: customHeaders, requestBody } = args;
 
@@ -482,7 +497,7 @@ export class OpenAPIConnector implements IToolProvider {
       }
     }
 
-    const authResult = await this.applyAuthentication(headers, finalUrl);
+    const authResult = await this.applyAuthentication(headers, finalUrl, agentContext);
     finalUrl = authResult.url;
 
     const requestOptions: RequestInit = { method: method.toUpperCase(), headers: new Headers(headers) };
@@ -504,46 +519,65 @@ export class OpenAPIConnector implements IToolProvider {
     return this.makeApiCall(finalUrl, requestOptions, opLabel);
   }
 
-  private async applyAuthentication(headers: Record<string, string>, currentUrl: string): Promise<{ url: string }> {
+  private async applyAuthentication(
+    headers: Record<string, string>,
+    currentUrl: string,
+    agentContext?: IAgentContext
+  ): Promise<{ url: string }> {
     let urlToUse = currentUrl;
-    const auth = this.authentication; // Assuming this.authentication is always defined
+    let authToApply: ConnectorAuthentication | undefined = this.authentication; // Start with static
 
-    switch (auth.type) {
+    // Check for provider-specific override
+    const perProviderOverrides = agentContext?.runConfig?.requestAuthOverrides;
+
+    if (perProviderOverrides && perProviderOverrides[this.sourceId]) {
+      authToApply = perProviderOverrides[this.sourceId];
+      console.debug(`[OpenAPIConnector:${this.sourceId}] Using dynamic auth override for this request.`);
+    } else {
+      console.debug(`[OpenAPIConnector:${this.sourceId}] Using statically configured authentication.`);
+    }
+
+    if (!authToApply) {
+      console.warn(`[OpenAPIConnector:${this.sourceId}] No authentication configuration found.`);
+      return { url: urlToUse };
+    }
+
+    switch (authToApply.type) {
       case 'bearer':
-        let tokenVal = auth.token;
+        let tokenVal = authToApply.token;
         if (typeof tokenVal === 'function') {
-          const result = tokenVal();
-          tokenVal = result instanceof Promise ? await result : result;
+          const resolvedToken = tokenVal(agentContext);
+          tokenVal = resolvedToken instanceof Promise ? await resolvedToken : resolvedToken;
         }
         if (tokenVal) {
           headers['Authorization'] = `Bearer ${tokenVal}`;
         } else {
-          console.warn('[OpenAPIConnector] Bearer token function returned empty or null value.');
+          console.warn(`[OpenAPIConnector:${this.sourceId}] Bearer token is undefined/empty.`);
         }
         break;
       case 'apiKey':
-        if (auth.in === 'header') {
-          headers[auth.name] = auth.key;
-        } else {
-          // 'query'
-          try {
-            const urlObj = new URL(urlToUse); // Base URL must be correctly formed
-            urlObj.searchParams.set(auth.name, auth.key);
-            urlToUse = urlObj.toString();
-          } catch (e: any) {
-            console.error(
-              `[OpenAPIConnector] Error modifying URL for query-based API key: ${e.message}. Original URL: ${urlToUse}. Ensure base URL is valid.`
-            );
+        if (authToApply.key) {
+          if (authToApply.in === 'header') {
+            headers[authToApply.name] = authToApply.key;
+          } else {
+            try {
+              const urlObj = new URL(urlToUse);
+              urlObj.searchParams.set(authToApply.name, authToApply.key);
+              urlToUse = urlObj.toString();
+            } catch (e: any) {
+              console.error(`[OpenAPIConnector:${this.sourceId}] Failed to add API key to URL: ${e.message}`);
+            }
           }
+        } else {
+          console.warn(`[OpenAPIConnector:${this.sourceId}] API key value is missing for key name '${authToApply.name}'.`);
         }
         break;
       case 'none':
-        // No action needed
         break;
       default:
-        // This should not happen if types are correct, but good for exhaustiveness
-        console.warn(`[OpenAPIConnector] Unknown authentication type encountered: ${(auth as any)?.type}`);
+        console.warn(`[OpenAPIConnector:${this.sourceId}] Unknown auth type: ${(authToApply as any)?.type}`);
     }
+
     return { url: urlToUse };
   }
 

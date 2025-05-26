@@ -97,12 +97,12 @@ describe('ContextManager', () => {
     expect(mockLlmClient.countTokens).toHaveBeenCalledTimes(2); // Initial + after summarization
     
     // Expected: System Prompt, Summary Message, Current Turn Messages
-    expect(preparedMessages.length).toBe(1 + 1 + currentTurnLLMMessages.length);
+    expect(preparedMessages.length).toBe(3); // System prompt + Summary + Current turn
     expect(preparedMessages[0]).toEqual(systemPrompt);
     expect(preparedMessages[1].role).toBe('system'); // Summary is injected as a system message by default
     expect(preparedMessages[1].content).toContain(mockSummary);
     expect(preparedMessages[1].content).toContain("======== CONVERSATION HISTORY SUMMARY ========");
-    expect(preparedMessages.slice(-1)[0].content).toBe('Very new input');
+    expect(preparedMessages[2].content).toBe('Very new input');
   });
 
   it('should not summarize if over threshold but not enough messages to summarize', async () => {
