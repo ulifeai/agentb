@@ -1,4 +1,4 @@
-# @your-org/agentb-chat-ui (Package Name TBD)
+# Agent B UI 
 
 ## Description
 
@@ -11,9 +11,9 @@ A React component library for an easy-to-integrate AI chat interface, designed t
 Once published, you can install it using npm or yarn:
 
 ```bash
-npm install @your-org/agentb-chat-ui
+npm install @ulifeai/agentb-ui
 # or
-yarn add @your-org/agentb-chat-ui
+yarn add @ulifeai/agentb-ui
 ```
 
 For now, to use this package, you would typically build it locally and link it, or use a tool like `yalc` for local development.
@@ -24,8 +24,8 @@ To use the chat component, import `AgentBChat` and its stylesheet into your Reac
 
 ```javascript
 import React from 'react';
-import { AgentBChat, ChatMessage } from '@your-org/agentb-chat-ui'; // Adjust path if using locally from source
-import '@your-org/agentb-chat-ui/dist/styles.css'; // Path after the package is built
+import { AgentBChat, ChatMessage } from '@ulifeai/agentb-ui'; // Adjust path if using locally from source
+import '@ulifeai/agentb-ui/dist/styles.css'; // Path after the package is built
 
 function MyApp() {
   // Example: Pre-populating messages
@@ -37,7 +37,7 @@ function MyApp() {
     <div>
       {/* Other application content */}
       <AgentBChat
-        backendUrl="http://localhost:3001/api/agentb_chat" // **IMPORTANT:** Replace with your actual AgentB backend SSE endpoint
+        backendUrl="http://localhost:3001/agent/stream" // **IMPORTANT:** Replace with your actual AgentB backend SSE endpoint
         chatWindowTitle="My AI Assistant"
         initialMessages={initialMessages} // Optional
         // initialThreadId="your-saved-thread-id" // Optional: To resume a previous conversation
@@ -121,6 +121,6 @@ An example project is available in the `examples/simple-chat` directory. To run 
     This will typically start a development server (e.g., Parcel on `http://localhost:1234`).
 5.  **Ensure your AgentB backend is running** and accessible at the URL specified in `examples/simple-chat/App.tsx` (default: `http://localhost:3001/api/agentb_chat`).
 
-**Note:** The example's `App.tsx` imports components directly from `../../src` for ease of development within the monorepo before the package is formally built and linked. When consuming the published package, the import paths will be from `@your-org/agentb-chat-ui`. The `styles.css` path in `index.html` also assumes it will be available relative to the example after a build or manual copy.Okay, the `README.md` has been created.
+**Note:** The example's `App.tsx` imports components directly from `../../src` for ease of development within the monorepo before the package is formally built and linked. When consuming the published package, the import paths will be from `@ulifeai/agentb-ui`. The `styles.css` path in `index.html` also assumes it will be available relative to the example after a build or manual copy.Okay, the `README.md` has been created.
 
 Now, I will create the `examples` directory.
