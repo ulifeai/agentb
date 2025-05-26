@@ -1,0 +1,1 @@
+{"version":3,"file":"MessageList.d.ts","sourceRoot":"","sources":["../../../../src/components/old/MessageList.tsx"],"names":[],"mappings":"AACA,OAAO,KAA4B,MAAM,OAAO,CAAC;AACjD,OAAO,EAAE,WAAW,EAAE,MAAM,SAAS,CAAC;AAEtC,OAAO,mBAAmB,CAAC;AAE3B,UAAU,gBAAgB;IACxB,QAAQ,EAAE,WAAW,EAAE,CAAC;CACzB;AAED,eAAO,MAAM,WAAW,EAAE,KAAK,CAAC,EAAE,CAAC,gBAAgB,CA4BlD,CAAC"}
