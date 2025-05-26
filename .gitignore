@@ -8,3 +8,5 @@ ts_ui.txt
 packages/ui
 ui/src/components/old
 examples
+dist/
+ui/dist
