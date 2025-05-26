@@ -1,1 +1,0 @@
-{"version":3,"file":"AgentStatusBar.d.ts","sourceRoot":"","sources":["../../../src/components/AgentStatusBar.tsx"],"names":[],"mappings":"AAEA,MAAM,WAAW,mBAAmB;IAClC,SAAS,EAAE,OAAO,CAAA;IAClB,WAAW,EAAE,OAAO,CAAA;IACpB,KAAK,EAAE,MAAM,GAAG,IAAI,CAAA;IACpB,YAAY,EAAE,MAAM,GAAG,IAAI,CAAA;CAC5B;AAED,wBAAgB,cAAc,CAAC,EAAE,SAAS,EAAE,WAAW,EAAE,KAAK,EAAE,YAAY,EAAE,EAAE,mBAAmB,2CAsClG"}

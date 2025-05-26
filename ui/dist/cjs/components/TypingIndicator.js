@@ -1,9 +1,0 @@
-"use strict";
-"use client";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TypingIndicator = TypingIndicator;
-const jsx_runtime_1 = require("react/jsx-runtime");
-function TypingIndicator() {
-    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex items-start space-x-4", children: [(0, jsx_runtime_1.jsx)("div", { className: "w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg", children: (0, jsx_runtime_1.jsx)("svg", { className: "w-4 h-4 text-white", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M13 10V3L4 14h7v7l9-11h-7z" }) }) }), (0, jsx_runtime_1.jsx)("div", { className: "flex-1 max-w-3xl", children: (0, jsx_runtime_1.jsx)("div", { className: "bg-white border border-gray-200 rounded-2xl rounded-tl-md px-6 py-4 shadow-sm", children: (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center space-x-2", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex space-x-1", children: [(0, jsx_runtime_1.jsx)("div", { className: "w-2 h-2 bg-gray-400 rounded-full animate-bounce" }), (0, jsx_runtime_1.jsx)("div", { className: "w-2 h-2 bg-gray-400 rounded-full animate-bounce", style: { animationDelay: "0.1s" } }), (0, jsx_runtime_1.jsx)("div", { className: "w-2 h-2 bg-gray-400 rounded-full animate-bounce", style: { animationDelay: "0.2s" } })] }), (0, jsx_runtime_1.jsx)("span", { className: "text-sm text-gray-500", children: "Assistant is thinking..." })] }) }) })] }));
-}
-//# sourceMappingURL=TypingIndicator.js.map
