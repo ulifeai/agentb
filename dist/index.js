@@ -1,5 +1,19 @@
 "use strict";
 // src/index.ts
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ApiInteractionManager = exports.ToolsetOrchestrator = exports.DelegateToSpecialistTool = exports.DEFAULT_CONTEXT_MANAGER_CONFIG = exports.ContextManager = exports.ToolExecutor = exports.LLMResponseProcessor = exports.DEFAULT_PLANNER_SYSTEM_PROMPT = exports.PlanningAgent = exports.BaseAgent = exports.DEFAULT_AGENT_RUN_CONFIG = exports.MemoryStorage = exports.createThreadObject = exports.mapIMessageToLLMMessage = exports.mapLLMMessageToIMessagePartial = exports.createMessageObject = exports.generateRouterSystemPrompt = exports.generateGenericHttpToolSystemPrompt = exports.generateToolsSystemPrompt = exports.LLM_ROUTER_TOOL_NAME_CONST = exports.LLM_GENERIC_HTTP_TOOL_NAME_CONST = exports.formatToolsForOpenAI = exports.adaptToolDefinitionsToOpenAI = exports.OpenAIAdapter = exports.headersToObject = exports.fetchSpec = exports.GENERIC_HTTP_TOOL_NAME = exports.GenericHttpApiTool = exports.OpenAPISpecParser = exports.OpenAPIConnector = exports.ValidationError = exports.StorageError = exports.InvalidStateError = exports.ConfigurationError = exports.LLMError = exports.ToolNotFoundError = exports.ApplicationError = exports.sanitizeIdForLLM = void 0;
 var utils_1 = require("./core/utils");
@@ -72,5 +86,6 @@ Object.defineProperty(exports, "ApiInteractionManager", { enumerable: true, get:
 // export type { AgentOrchestratorOptions, SpecialistAgent } from './managers/orchestrator';
 // export { APIToolManager } from './managers/tool-manager';
 // export type { APIToolManagerOptions, APIToolMode as OldAPIToolMode } from './managers/tool-manager';
+__exportStar(require("./facades/agentb"), exports);
 console.log('AI Agent Framework Core Loaded.'); // Optional: for build verification
 //# sourceMappingURL=index.js.map

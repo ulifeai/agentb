@@ -1,6 +1,6 @@
 {
   "name": "@ulifeai/agentb",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The easiest way to integrate AI agents with your API tools in your app.",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",

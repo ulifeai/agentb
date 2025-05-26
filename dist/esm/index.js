@@ -31,5 +31,6 @@ export { ApiInteractionManager } from './managers/api-interaction-manager';
 // export type { AgentOrchestratorOptions, SpecialistAgent } from './managers/orchestrator';
 // export { APIToolManager } from './managers/tool-manager';
 // export type { APIToolManagerOptions, APIToolMode as OldAPIToolMode } from './managers/tool-manager';
+export * from './facades/agentb';
 console.log('AI Agent Framework Core Loaded.'); // Optional: for build verification
 //# sourceMappingURL=index.js.map
