@@ -6,108 +6,94 @@
 */
 
 import { IToolProvider, ITool, IToolResult } from '../core/tool';
-import { LLMToolCall } from '../llm/types'; // Assuming LLMToolCall includes id, function.name, function.arguments (string)
+import { LLMToolCall } from '../llm/types';
 import { ToolExecutorConfig } from './config';
 import { ToolNotFoundError, ApplicationError, ValidationError } from '../core/errors';
-import Ajv from 'ajv';
+import Ajv, { AnySchemaObject, Options as AjvOptions, ErrorObject } from 'ajv';
+const addFormats = require('ajv-formats');
 import { JSONSchema7 } from 'json-schema';
+import { IAgentContext } from './types';
+
+// Add OpenAPI types
+interface OpenAPISpec {
+  components?: {
+    schemas?: Record<string, SchemaWithId>;
+  };
+  [key: string]: any;
+}
+
+interface SchemaWithId extends JSONSchema7 {
+  $id?: string;
+  $anchor?: string;
+  properties?: Record<string, SchemaWithId>;
+  items?: SchemaWithId | SchemaWithId[];
+  allOf?: SchemaWithId[];
+  anyOf?: SchemaWithId[];
+  oneOf?: SchemaWithId[];
+  $ref?: string;
+  [key: string]: any;
+}
+
+interface ToolWithOpenAPI extends ITool {
+  getOpenAPISpec?(): Promise<OpenAPISpec>;
+}
+
+interface SchemaRegistryEntry {
+  schema: SchemaWithId;
+  primaryId: string;
+  name: string;
+  aliases: string[];
+}
+
+interface IToolDefinitionParameter {
+  name: string;
+  type: string;
+  required?: boolean;
+  description?: string; 
+  schema?: SchemaWithId | string; 
+}
 
 export class ToolExecutor {
   private toolProvider: IToolProvider;
   private config: ToolExecutorConfig;
+  private agentContext?: IAgentContext;
   
-  constructor(toolProvider: IToolProvider, config: ToolExecutorConfig = {}) {
+  constructor(toolProvider: IToolProvider, config: ToolExecutorConfig = {}, agentContext?: IAgentContext) {
     this.toolProvider = toolProvider;
     this.config = {
-      executionStrategy: 'sequential', // Default
+      executionStrategy: 'sequential',
       ...config,
     };
+    this.agentContext = agentContext;
   }
   
-  /**
-  * Executes a list of detected tool calls.
-  *
-  * @param parsedToolCalls An array of LLMToolCall objects from the LLMResponseProcessor.
-  * @returns A Promise resolving to an array of IToolResult, maintaining the order of input calls.
-  *          Each result will correspond to the input tool call, even if execution failed.
-  */
   public async executeToolCalls(
-    parsedToolCalls: LLMToolCall[]
+    parsedToolCalls: LLMToolCall[],
+    agentContextOverride?: IAgentContext
   ): Promise<Array<{ toolCallId: string; toolName: string; result: IToolResult }>> {
     if (!parsedToolCalls || parsedToolCalls.length === 0) {
       return [];
     }
     
+    const contextForExecution = agentContextOverride || this.agentContext;
+
     if (this.config.executionStrategy === 'sequential') {
-      const sequentialResults: Array<{ toolCallId: string; toolName: string; result: IToolResult }> = [];
+      const sequentialResults: Array<{ toolCallId:string; toolName: string; result: IToolResult }> = [];
       for (const toolCall of parsedToolCalls) {
-        // Await each call directly for sequential execution
-        const singleResult = await this.executeSingleToolCall(toolCall);
+        const singleResult = await this.executeSingleToolCall(toolCall, contextForExecution);
         sequentialResults.push(singleResult);
       }
       return sequentialResults;
     } else {
-      // Parallel execution
       const executionPromises: Promise<{ toolCallId: string; toolName: string; result: IToolResult }>[] =
-      parsedToolCalls.map(toolCall => this.executeSingleToolCall(toolCall));
+      parsedToolCalls.map(toolCall => this.executeSingleToolCall(toolCall, contextForExecution));
       return Promise.all(executionPromises);
     }
   }
-
-  // Helper function to resolve schema references
-  private resolveSchema(schema: any, rootSchema: any): any {
-    if (!schema || typeof schema !== 'object') return schema;
-    
-    // Handle direct $ref
-    if (schema.$ref) {
-      const refPath = schema.$ref;
-      if (!refPath.startsWith('#')) {
-        console.warn(`[ToolExecutor] External $ref not supported: ${refPath}`);
-        return schema;
-      }
-      
-      // Remove the leading # and split the path
-      const path = refPath.slice(1);
-      if (!path) {
-        console.warn(`[ToolExecutor] Invalid $ref path: ${refPath}`);
-        return schema;
-      }
-      
-      const parts = path.split('/').filter(Boolean); // Filter out empty strings
-      let resolvedItem: any = rootSchema;
-      
-      
-      
-      for (const part of parts) {
-        const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
-        if (resolvedItem && typeof resolvedItem === 'object' && decodedPart in resolvedItem) {
-          resolvedItem = resolvedItem[decodedPart];
-          console.log(`[ToolExecutor] Found part "${decodedPart}":`, JSON.stringify(resolvedItem, null, 2));
-        } else {
-          console.warn(`[ToolExecutor] Failed to resolve $ref "${refPath}": part "${decodedPart}" not found in path "${path}"`);
-          console.log(`[ToolExecutor] Available keys in current level:`, Object.keys(resolvedItem || {}));
-          return schema;
-        }
-      }
-      
-      return resolvedItem;
-    }
-    
-    // Recursively resolve references in nested objects and arrays
-    const resolved: any = Array.isArray(schema) ? [] : {};
-    for (const key in schema) {
-      resolved[key] = this.resolveSchema(schema[key], rootSchema);
-    }
-    return resolved;
-  };
   
-  /**
-  * Executes a single tool call.
-  * @param toolCall The LLMToolCall object.
-  * @returns A Promise resolving to an object containing the toolCallId, toolName, and its IToolResult.
-  */
   private async executeSingleToolCall(
-    toolCall: LLMToolCall
+    toolCall: LLMToolCall,
+    agentContext?: IAgentContext
   ): Promise<{ toolCallId: string; toolName: string; result: IToolResult }> {
     const toolName = toolCall.function.name;
     const toolCallId = toolCall.id;
@@ -122,211 +108,247 @@ export class ToolExecutor {
       try {
         args = JSON.parse(toolCall.function.arguments);
       } catch (e) {
-        // Pass the original arguments string to the ValidationError for context
-        throw new ValidationError(`Invalid JSON arguments for tool "${toolName}": ${(e as Error).message}`, {
-          arguments: toolCall.function.arguments,
-        });
+        throw new ValidationError(`Invalid JSON arguments for tool "${toolName}": ${(e as Error).message}`, 
+          { argumentsString: toolCall.function.arguments, error: (e as Error).message },
+          { toolName }
+        );
       }
 
-      // NEW VALIDATION BLOCK
       const toolDefinition = await tool.getDefinition();
       const validationErrors: string[] = [];
       
-      for (const paramDef of toolDefinition.parameters) {
+      const ajv = new Ajv({
+        allErrors: true,
+        verbose: true,
+        strict: false, 
+        allowUnionTypes: true, 
+        loadSchema: async (uri: string) => {
+          console.warn(`[ToolExecutor:AJV] AJV loadSchema called for: ${uri}. This implies resolveSchema failed to inline a reference.`);
+          throw new Error(`AJV loadSchema fallback for URI: ${uri}. This indicates a failure in custom resolver or a true external ref not handled by it.`);
+        },
+      } as AjvOptions);
+      addFormats(ajv);
+
+      const schemaRegistry = new Map<string, SchemaRegistryEntry>();
+      
+      let openApiSpec: OpenAPISpec = {};
+      if (tool && 'getOpenAPISpec' in tool && typeof tool.getOpenAPISpec === 'function') {
+        openApiSpec = await (tool as ToolWithOpenAPI).getOpenAPISpec!();
+      }
+
+      if (openApiSpec.components?.schemas) {
+        for (const [schemaName, schemaObj] of Object.entries(openApiSpec.components.schemas)) {
+          if (!schemaObj || typeof schemaObj !== 'object') continue;
+          const primaryId = schemaObj.$id || `#/components/schemas/${schemaName}`;
+          const aliases: string[] = [primaryId];
+          const pathBasedId = `#/components/schemas/${schemaName}`;
+          if (schemaObj.$id && schemaObj.$id !== pathBasedId && !aliases.includes(schemaObj.$id)) {
+            aliases.push(schemaObj.$id);
+          }
+          if (pathBasedId !== primaryId && !aliases.includes(pathBasedId)) {
+            aliases.push(pathBasedId);
+          }
+          if(!aliases.includes(primaryId)) aliases.unshift(primaryId);
+
+          const uniqueAliases = [...new Set(aliases)];
+          if (schemaRegistry.has(primaryId) && schemaRegistry.get(primaryId)?.name !== schemaName) {
+            console.warn(`[Schema Registry] Conflict for primary ID ${primaryId}. Original: ${schemaRegistry.get(primaryId)?.name}, New: ${schemaName}. Using first one registered.`);
+            continue;
+          }
+          schemaRegistry.set(primaryId, { schema: schemaObj, primaryId, name: schemaName, aliases: uniqueAliases });
+        }
+      }
+      
+      let findAnchorInSchema: (
+        schemaToSearch: SchemaWithId,
+        targetAnchor: string,
+        visitedAnchors?: Set<SchemaWithId>
+      ) => SchemaWithId | null;
+      findAnchorInSchema = (
+        schemaToSearch: SchemaWithId,
+        targetAnchor: string,
+        visitedAnchors = new Set<SchemaWithId>()
+      ): SchemaWithId | null => {
+        if (!schemaToSearch || typeof schemaToSearch !== 'object' || visitedAnchors.has(schemaToSearch)) return null;
+        visitedAnchors.add(schemaToSearch);
+        if (schemaToSearch.$anchor === targetAnchor) return schemaToSearch;
+        for (const key of ['properties', 'items', 'allOf', 'anyOf', 'oneOf', 'definitions', '$defs']) {
+            const subSchemaOrArray = schemaToSearch[key as keyof SchemaWithId];
+            if (subSchemaOrArray) {
+                const schemasToCheck: SchemaWithId[] = [];
+                if (Array.isArray(subSchemaOrArray)) schemasToCheck.push(...(subSchemaOrArray.filter(s => typeof s === 'object' && s !== null) as SchemaWithId[]));
+                else if (typeof subSchemaOrArray === 'object' && subSchemaOrArray !== null) {
+                    if (key === 'properties' || key === 'definitions' || key === '$defs') schemasToCheck.push(...(Object.values(subSchemaOrArray).filter(s => typeof s === 'object' && s !== null) as SchemaWithId[]));
+                    else schemasToCheck.push(subSchemaOrArray as SchemaWithId);
+                }
+                for (const item of schemasToCheck) {
+                    const found = findAnchorInSchema(item, targetAnchor, new Set(visitedAnchors));
+                    if (found) return found;
+                }
+            }
+        }
+        return null;
+      };
+      
+      const resolveSchema = (currentSchema: SchemaWithId, resolutionPath: string[], visited = new Set<string>()): SchemaWithId => {
+        const currentPathKey = resolutionPath.join('/');
+        if (!currentSchema || typeof currentSchema !== 'object') return currentSchema;
+        
+        let cycleKey = JSON.stringify(currentSchema); 
+        if (currentSchema.$id && (currentSchema.$id.includes(':') || currentSchema.$id.startsWith('#/'))) {
+            cycleKey = currentSchema.$id;
+        }
+
+        if (visited.has(cycleKey)) {
+          return { type: 'object', description: `Circular ref placeholder for ${cycleKey.substring(0,100)}` } as SchemaWithId;
+        }
+        visited.add(cycleKey);
+
+        let schemaToProcess = currentSchema;
+
+        if (currentSchema.$ref) {
+            const refPath = currentSchema.$ref;
+            let baseUri = refPath; 
+            let anchorPart: string | undefined = undefined;
+            const poundIndex = refPath.indexOf('#');
+        
+            if (poundIndex !== -1) { 
+                anchorPart = refPath.substring(poundIndex + 1);
+                baseUri = refPath.substring(0, poundIndex); 
+                if (baseUri === '') { 
+                    if (refPath.startsWith('#/')) { 
+                        baseUri = refPath; 
+                        anchorPart = undefined; 
+                    } else { 
+                        baseUri = currentSchema.$id || '#'; 
+                    }
+                }
+            }
+        
+            let foundEntry: SchemaRegistryEntry | undefined;
+            for (const entry of schemaRegistry.values()) {
+                if (entry.primaryId === baseUri || entry.aliases.includes(baseUri)) {
+                    foundEntry = entry;
+                    break;
+                }
+            }
+            
+            if (foundEntry) {
+                let resolvedBase = resolveSchema(foundEntry.schema, [...resolutionPath, `$ref(${foundEntry.name})`], new Set(visited));
+        
+                if (anchorPart) {
+                    const anchoredSchema = findAnchorInSchema(resolvedBase, anchorPart, new Set());
+                    if (anchoredSchema) {
+                         resolvedBase = anchoredSchema; // resolvedBase is now the specific fragment pointed to by anchor
+                    } else {
+                        console.warn(`[Schema Resolution Ref DEBUG] Path: ${currentPathKey}, Could not find $anchor: "${anchorPart}" in schema from "${foundEntry.name}".`);
+                        resolvedBase = { type: 'object', additionalProperties: true, description: `Failed to resolve anchor ${anchorPart}` } as SchemaWithId;
+                    }
+                }
+                
+                const { $ref, ...siblingKeywords } = currentSchema; 
+                
+                // When inlining, strip original $id and $anchor from the resolvedBase content,
+                // as this new schema fragment is anonymous in its new context.
+                const { $id: _resolvedBaseId, $anchor: _resolvedBaseAnchor, ...resolvedBaseWithoutIdOrAnchor } = resolvedBase;
+                schemaToProcess = { ...resolvedBaseWithoutIdOrAnchor, ...siblingKeywords };
+                
+            } else {
+                console.warn(`[Schema Resolution Ref DEBUG] Path: ${currentPathKey}, Could NOT resolve $ref with baseUri "${baseUri}" (from original ref "${refPath}") in schema registry. This ref will remain for AJV to handle.`);
+                // schemaToProcess remains currentSchema (which contains the $ref for AJV's loadSchema)
+            }
+        }
+
+        const result: Record<string, any> = {};
+        for (const [key, value] of Object.entries(schemaToProcess)) {
+          if (key === '$ref' && schemaToProcess === currentSchema && currentSchema.$ref) { 
+            result[key] = value; 
+          } else if (typeof value === 'object' && value !== null) {
+            if (Array.isArray(value)) {
+              result[key] = value.map((item, index) => (typeof item === 'object' ? resolveSchema(item as SchemaWithId, [...resolutionPath, key, String(index)], new Set(visited)) : item));
+            } else {
+              result[key] = resolveSchema(value as SchemaWithId, [...resolutionPath, key], new Set(visited));
+            }
+          } else {
+            result[key] = value;
+          }
+        }
+        
+        visited.delete(cycleKey);
+        return result as SchemaWithId;
+      };
+
+      for (const paramDef of toolDefinition.parameters as IToolDefinitionParameter[]) {
         const argValue = args[paramDef.name];
         
         if (paramDef.required && argValue === undefined) {
           validationErrors.push(`Missing required parameter: "${paramDef.name}".`);
-          continue; // Skip further checks for this missing param
+          continue;
         }
         
-        if (argValue !== undefined) {
-          // Basic type check (can be expanded)
-          const argType = typeof argValue;
-          let expectedType = paramDef.type.toLowerCase();
-          // Accommodate JSON schema types like 'integer' for 'number' typeof
-          if (expectedType === 'integer') expectedType = 'number';
-          if (expectedType === 'array' && !Array.isArray(argValue)) {
-            validationErrors.push(`Parameter "${paramDef.name}" expected type array, got ${argType}.`);
-          } else if (expectedType !== 'array' && expectedType !== 'object' && expectedType !== 'any' && argType !== expectedType) {
-            validationErrors.push(`Parameter "${paramDef.name}" expected type ${paramDef.type}, got ${argType}.`);
-          }
-          // TODO: Implement JSON schema validation using a library like AJV if paramDef.schema is present
-          if (paramDef.schema) {
-            const ajv = new Ajv({
-              allErrors: true,
-              verbose: true,
-              formats: {
-                // Numeric formats
-                float: true,
-                double: true,
-                int32: true,
-                int64: true,
-                byte: true,
-                
-                // String formats
-                date: true,
-                'date-time': true,
-                time: true,
-                duration: true,
-                email: true,
-                hostname: true,
-                ipv4: true,
-                ipv6: true,
-                uri: true,
-                'uri-reference': true,
-                'uri-template': true,
-                url: true,
-                uuid: true,
-                password: true,
-                
-                // Binary formats
-                binary: true,
-                base64: true,
-                
-                // Additional formats
-                json: true,
-                regex: true
-              }
-            });
-            
-            // Get the complete schema context from the tool definition
-            const toolDefinition = await tool.getDefinition();
-            
-            // Get the OpenAPI spec from the tool if it's an OpenAPI tool
-            let rootSchema = {
-              components: {
-                schemas: {}
-              }
+        if (argValue !== undefined && paramDef.schema) {
+          try {
+            const paramSchemaObject = (typeof paramDef.schema === 'string' ? JSON.parse(paramDef.schema) : paramDef.schema) as SchemaWithId;
+            const fullyResolvedSchema = resolveSchema(paramSchemaObject, [paramDef.name]);
+
+            // Check for any remaining $ref keywords (should ideally be none for local/component refs)
+            const checkRemainingRefs = (schema: any, path: string[] = []): void => {
+                if (!schema || typeof schema !== 'object') return;
+                if (schema.$ref) {
+                    console.warn(`[Validation WARNING] Unresolved "$ref: ${schema.$ref}" found at path "${path.join('/')}" in fullyResolvedSchema for param "${paramDef.name}".`);
+                }
+                for (const [key, value] of Object.entries(schema)) {
+                    if (typeof value === 'object') {
+                        checkRemainingRefs(value, [...path, key]);
+                    }
+                }
             };
-            
-            // Try to get schemas from the OpenAPI spec if available
-            if ('getOpenAPISpec' in tool) {
-              const spec = await (tool as any).getOpenAPISpec();
-              if (spec?.components?.schemas) {
-                rootSchema.components.schemas = spec.components.schemas;
-              }
+            if(paramDef.name === "requestBody") { // Only log for the problematic one for now
+                checkRemainingRefs(fullyResolvedSchema);
             }
-            
-            // Add all schemas to Ajv first
-            if (rootSchema.components?.schemas) {
-              Object.entries(rootSchema.components.schemas).forEach(([schemaId, schema]) => {
-                // Register each schema with its full path as ID
-                const schemaPath = `#/components/schemas/${schemaId}`;
-                ajv.addSchema(schema as JSONSchema7, schemaPath);
-              });
-            }
-            
-            // Helper function to resolve schema references
-            const resolveSchema = (schema: any, rootSchema: any): any => {
-              if (!schema || typeof schema !== 'object') return schema;
-              
-              // Handle direct $ref
-              if (schema.$ref) {
-                const refPath = schema.$ref;
-                if (!refPath.startsWith('#')) {
-                  console.warn(`[ToolExecutor] External $ref not supported: ${refPath}`);
-                  return schema;
-                }
-                
-                // Remove the leading # and split the path
-                const path = refPath.slice(1);
-                if (!path) {
-                  console.warn(`[ToolExecutor] Invalid $ref path: ${refPath}`);
-                  return schema;
-                }
-                
-                const parts = path.split('/').filter(Boolean); // Filter out empty strings
-                let resolvedItem: any = rootSchema;
-                
-              
-                
-                for (const part of parts) {
-                  const decodedPart = part.replace(/~1/g, '/').replace(/~0/g, '~');
-                  if (resolvedItem && typeof resolvedItem === 'object' && decodedPart in resolvedItem) {
-                    resolvedItem = resolvedItem[decodedPart];
-                    console.log(`[ToolExecutor] Found part "${decodedPart}":`, JSON.stringify(resolvedItem, null, 2));
-                  } else {
-                    console.warn(`[ToolExecutor] Failed to resolve $ref "${refPath}": part "${decodedPart}" not found in path "${path}"`);
-                    console.log(`[ToolExecutor] Available keys in current level:`, Object.keys(resolvedItem || {}));
-                    return schema;
-                  }
-                }
-                
-                return resolvedItem;
-              }
-              
-              // Recursively resolve references in nested objects and arrays
-              const resolved: any = Array.isArray(schema) ? [] : {};
-              for (const key in schema) {
-                resolved[key] = resolveSchema(schema[key], rootSchema);
-              }
-              return resolved;
-            };
-            
-            // Resolve any references in the schema
-            const resolvedSchema = this.resolveSchema(paramDef.schema, rootSchema);
-            
-            // Add the resolved schema with a unique ID
-            const schemaId = `requestBody_${paramDef.name}`;
-            ajv.addSchema(resolvedSchema as JSONSchema7, schemaId);
-            
-            // Get the compiled schema by ID
-            const validate = ajv.getSchema(schemaId);
-            if (!validate) {
-              throw new Error(`Failed to compile schema with ID: ${schemaId}`);
-            }
+
+            const validate = ajv.compile(fullyResolvedSchema as AnySchemaObject);
             
             if (!validate(argValue)) {
-              validationErrors.push(`Parameter "${paramDef.name}" failed schema validation: ${ajv.errorsText(validate.errors)}`);
+              const errorDetails = validate.errors?.map((err: ErrorObject) => {
+                return `${err.instancePath || 'root'} ${err.message} (schema path: ${err.schemaPath})`;
+              }).join('; ') || 'Unknown validation error.';
+              validationErrors.push(`Parameter "${paramDef.name}" failed schema validation: ${errorDetails}`);
             }
+          } catch (error: unknown) {
+            console.error(`[Validation] Error during schema compilation or validation for parameter "${paramDef.name}":`, error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            validationErrors.push(`Parameter "${paramDef.name}" schema processing failed: ${errorMessage}`);
           }
         }
       }
       
       if (validationErrors.length > 0) {
         throw new ValidationError(
-          `Validation failed for tool "${toolName}": ${validationErrors.join('; ')}`,
-          undefined, // Or pass more structured validation details
-          { arguments: toolCall.function.arguments, parsedArgs: args, errors: validationErrors }
+          `Validation failed for tool "${toolName}": ${validationErrors.join(' ')}`,
+          { errors: validationErrors },
+          { arguments: toolCall.function.arguments, parsedArgs: args, toolName }
         );
       }
+
+      const result = await tool.execute(args, agentContext);
       
-      const result = await tool.execute(args);
       return { toolCallId, toolName, result };
+
     } catch (error: any) {
-      console.error(`[ToolExecutor] Error executing tool "${toolName}" (ID: ${toolCallId}):`, error);
-      
       let toolResultError: IToolResult;
       const errorMessage = error.message || 'Unknown error during tool execution.';
-      
-      // Ensure `errorName` and any specific `error.metadata` (like from ValidationError) are captured.
-      // Assumes ToolNotFoundError, ValidationError, and ApplicationError all have a `name` property.
-      // ApplicationError (and its potential subclasses like ValidationError if designed that way)
-      // might also carry a `metadata` property.
       let resultMetadata: Record<string, any> | undefined = {};
-      
-      if (error.name) {
-        resultMetadata.errorName = error.name;
-      }
-      
-      // If the error instance has its own `metadata` property (e.g., ApplicationError or ValidationError), merge it.
+      if (error.name) resultMetadata.errorName = error.name;
       if (error.metadata && typeof error.metadata === 'object') {
         resultMetadata = { ...resultMetadata, ...error.metadata };
       }
-      
-      // Ensure metadata is undefined if it's empty, rather than an empty object.
-      if (Object.keys(resultMetadata??{}).length === 0) {
-        resultMetadata = undefined;
-      }
-      
-      toolResultError = {
-        success: false,
-        data: null,
-        error: errorMessage,
-        metadata: resultMetadata,
+      toolResultError = { 
+        success: false, 
+        data: null, 
+        error: errorMessage, 
+        metadata: resultMetadata && Object.keys(resultMetadata).length > 0 ? resultMetadata : undefined 
       };
-      
       return { toolCallId, toolName, result: toolResultError };
     }
   }

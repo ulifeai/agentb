@@ -34,6 +34,7 @@ import { LLMResponseProcessor } from '../agents/response-processor';
 import { ToolExecutor } from '../agents/tool-executor';
 import { ContextManager } from '../agents/context-manager';
 import { MemoryStorage } from '../threads/storage/memory-storage'; // Default in-memory storage
+import { AggregatedToolProvider } from '../tools/core/aggregated-tool-provider';
 import { ConfigurationError, InvalidStateError, ApplicationError } from '../core/errors';
 import { IMessageStorage } from '../threads/types';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique run IDs
@@ -120,6 +121,7 @@ export class ApiInteractionManager {
   // Mode-specific components
   private toolsetOrchestrator?: ToolsetOrchestrator;
   private genericToolProvider?: IToolProvider;
+  private aggregatedMasterToolProvider?: AggregatedToolProvider;
 
   private _isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
@@ -175,10 +177,44 @@ export class ApiInteractionManager {
         // Should be caught by constructor but good for robustness
         throw new InvalidStateError('ToolsetOrchestratorConfig is missing for initialization.');
       }
-      this.toolsetOrchestrator = new ToolsetOrchestrator(this.options.toolsetOrchestratorConfig);
+      // Pass this.llmClient to the ToolsetOrchestrator constructor
+      this.toolsetOrchestrator = new ToolsetOrchestrator(this.options.toolsetOrchestratorConfig, this.llmClient);
       await this.toolsetOrchestrator.ensureInitialized();
+      const individualProviders = await this.toolsetOrchestrator.getToolProviders();
+      if (individualProviders && individualProviders.length > 0) {
+        this.aggregatedMasterToolProvider = new AggregatedToolProvider(individualProviders);
+        await (this.aggregatedMasterToolProvider as { ensureInitialized(): Promise<void> }).ensureInitialized();
+        console.info(`[ApiInteractionManager] AggregatedMasterToolProvider created with ${individualProviders.length} base provider(s).`);
+      } else {
+        // Fallback for empty or undefined providers from orchestrator
+        this.aggregatedMasterToolProvider = new AggregatedToolProvider([]);
+        await (this.aggregatedMasterToolProvider as { ensureInitialized(): Promise<void> }).ensureInitialized();
+        console.warn('[ApiInteractionManager] ToolsetOrchestrator yielded no individual providers. AggregatedMasterToolProvider is empty.');
+      }
     }
     if (this.mode === 'genericOpenApi') {
+      let connectorOptsToUse: OpenAPIConnectorOptions | undefined = this.options.genericOpenApiProviderConfig;
+
+      // This fallback (using toolsetOrchestratorConfig[0]) is primarily for AgentB's convenience
+      // where it might only have a list of ToolProviderSourceConfig.
+      if (!connectorOptsToUse && this.options.toolsetOrchestratorConfig && this.options.toolsetOrchestratorConfig.length > 0) {
+          const firstSourceConfig = this.options.toolsetOrchestratorConfig[0];
+          if (firstSourceConfig.type === 'openapi' || firstSourceConfig.type === undefined) {
+            connectorOptsToUse = {
+                ...(firstSourceConfig.openapiConnectorOptions as Omit<OpenAPIConnectorOptions, 'sourceId'>),
+                sourceId: firstSourceConfig.id // Explicitly add sourceId from the root config
+            };
+            console.info(`[AIM] genericOpenApi mode using first provider from list: ${firstSourceConfig.id}`);
+          }
+      }
+      
+      if (!connectorOptsToUse) {
+        throw new ConfigurationError('ApiInteractionManager: genericOpenApi mode requires either genericOpenApiProviderConfig or a valid first provider in toolsetOrchestratorConfig.');
+      }
+      if (!connectorOptsToUse.sourceId) {
+        throw new ConfigurationError('ApiInteractionManager: genericOpenApi mode requires sourceId in connector options.');
+      }
+
       // Only initialize genericToolProvider if in this specific mode
       if (!this.options.genericOpenApiProviderConfig) {
         // Should be caught by constructor
@@ -186,7 +222,7 @@ export class ApiInteractionManager {
           "GenericOpenApiProviderConfig is missing for 'genericOpenApi' mode during initialization."
         );
       }
-      const connectorOpts = { ...this.options.genericOpenApiProviderConfig };
+      const connectorOpts = { ...connectorOptsToUse };
       // Ensure the generic HTTP tool is included if no specific tags are filtered for genericOpenApi mode
       if (connectorOpts.tagFilter === undefined && connectorOpts.includeGenericToolIfNoTagFilter === undefined) {
         connectorOpts.includeGenericToolIfNoTagFilter = true;
@@ -338,6 +374,7 @@ export class ApiInteractionManager {
     }
     const deps: DelegateToolDependencies = {
       toolsetOrchestrator: this.toolsetOrchestrator,
+      masterToolProvider: this.aggregatedMasterToolProvider, // Add this line
       llmClient: this.llmClient,
       messageStorage: this.messageStorage, // Or a factory for scoped storage
       workerAgentImplementation: BaseAgent, // Default worker, can be made configurable
@@ -489,32 +526,61 @@ export class ApiInteractionManager {
       effectiveRunConfig.systemPrompt = DEFAULT_PLANNER_SYSTEM_PROMPT;
     }
 
+    // In runAgentInteraction & continueAgentRunWithToolOutputs
+    // ...
     let agentToolProvider: IToolProvider;
-    let AgentToRunClass: new () => IAgent = this.agentImplementation; // Default to BaseAgent or user-provided
+    // AgentToRunClass will be determined based on mode and this.agentImplementation
+    let AgentToRunClass: new () => IAgent = this.agentImplementation; 
 
     if (this.mode === 'genericOpenApi') {
-      if (!this.genericToolProvider)
+      if (!this.genericToolProvider) {
         throw new InvalidStateError('Generic tool provider not initialized for agent run.');
+      }
       agentToolProvider = this.genericToolProvider;
+      // AgentToRunClass remains this.agentImplementation (e.g., BaseAgent)
     } else if (this.mode === 'toolsetsRouter') {
-      // 'toolsetsRouter'
-      if (!this.toolsetOrchestrator) throw new InvalidStateError('Toolset orchestrator not initialized for agent run.');
+      if (!this.toolsetOrchestrator) {
+        throw new InvalidStateError('Toolset orchestrator not initialized for agent run.');
+      }
       agentToolProvider = this.createRouterToolProvider(this.toolsetOrchestrator);
+      // AgentToRunClass remains this.agentImplementation (e.g., BaseAgent), sees only RouterTool
     } else if (this.mode === 'hierarchicalPlanner') {
-      if (!this.toolsetOrchestrator)
-        throw new InvalidStateError('Toolset orchestrator not initialized for hierarchical planner.');
-      const delegateTool = this.createDelegateToSpecialistTool();
-      agentToolProvider = {
-        // Provider that only gives the delegate tool
-        getTools: async () => [delegateTool],
-        getTool: async (name: string) => (name === delegateTool.toolName ? delegateTool : undefined),
-        ensureInitialized: async () => Promise.resolve(),
-      };
-      AgentToRunClass = PlanningAgent; // Use PlanningAgent for this mode
+      if (!this.toolsetOrchestrator || !this.aggregatedMasterToolProvider) {
+        throw new InvalidStateError('ToolsetOrchestrator or AggregatedMasterToolProvider not initialized for hierarchical planner.');
+      }
+
+      // If this.agentImplementation is PlanningAgent, or if it's the default (BaseAgent) for this mode,
+      // then use PlanningAgent and give it the DelegateToSpecialistTool.
+      const effectivelyPlanningAgent = 
+        (this.agentImplementation.name === BaseAgent.name && !this.options.agentImplementation) || // It's the default BaseAgent
+        (this.agentImplementation.name === PlanningAgent.name); // It's explicitly PlanningAgent
+
+      if (effectivelyPlanningAgent) {
+        AgentToRunClass = PlanningAgent; // Override to PlanningAgent
+        // Ensure PlanningAgent gets its specific system prompt if not already overridden by user
+        if (!effectiveRunConfig.systemPrompt || effectiveRunConfig.systemPrompt === this.defaultAgentRunConfig.systemPrompt) {
+            effectiveRunConfig.systemPrompt = DEFAULT_PLANNER_SYSTEM_PROMPT;
+        }
+        const delegateTool = this.createDelegateToSpecialistTool();
+        agentToolProvider = {
+          getTools: async () => [delegateTool],
+          getTool: async (name: string) => ((await delegateTool.getDefinition()).name === name ? delegateTool : undefined),
+          ensureInitialized: async () => Promise.resolve(),
+        };
+      } else {
+        // User has explicitly provided a non-PlanningAgent (e.g. BaseAgent) for this mode's config.
+        // This agent should get all tools from the orchestrator.
+        AgentToRunClass = this.agentImplementation; // Use the explicitly set agent
+        agentToolProvider = this.aggregatedMasterToolProvider;
+        // If the system prompt was the default planner prompt, revert to a more generic one.
+        if (effectiveRunConfig.systemPrompt === DEFAULT_PLANNER_SYSTEM_PROMPT) {
+          effectiveRunConfig.systemPrompt = this.defaultAgentRunConfig.systemPrompt || "You are a helpful AI assistant. Please use tools if necessary.";
+        }
+      }
     } else {
       throw new InvalidStateError(`Agent run not implemented for mode: ${this.mode}`);
     }
-
+    
     // --- Agent Run State Management ---
     let agentRunRecord: IAgentRun;
     if (existingRunId) {
@@ -573,8 +639,7 @@ export class ApiInteractionManager {
       runConfig: effectiveRunConfig,
     };
 
-    const AgentClass = this.agentImplementation;
-    const agent = new AgentClass(); // Assumes a parameterless constructor
+    const agent = new AgentToRunClass(); // Use the determined AgentToRunClass
 
     try {
       for await (const event of agent.run(agentContext, initialTurnMessages)) {
@@ -693,30 +758,52 @@ export class ApiInteractionManager {
     }
 
     let agentToolProvider: IToolProvider;
-    let AgentToContinueClass: new () => IAgent = this.agentImplementation; // Default
+    // AgentToRunClass will be determined based on mode and this.agentImplementation
+    let AgentToRunClass: new () => IAgent = this.agentImplementation; 
 
-    // Determine tool provider based on the manager's mode (same logic as in runAgentInteraction)
     if (this.mode === 'genericOpenApi') {
-      if (!this.genericToolProvider)
+      if (!this.genericToolProvider) {
         throw new InvalidStateError('Generic tool provider not initialized for agent continuation.');
+      }
       agentToolProvider = this.genericToolProvider;
+      // AgentToRunClass remains this.agentImplementation (e.g., BaseAgent)
     } else if (this.mode === 'toolsetsRouter') {
-      // 'toolsetsRouter'
-      if (!this.toolsetOrchestrator)
+      if (!this.toolsetOrchestrator) {
         throw new InvalidStateError('Toolset orchestrator not initialized for agent continuation.');
+      }
       agentToolProvider = this.createRouterToolProvider(this.toolsetOrchestrator);
+      // AgentToRunClass remains this.agentImplementation (e.g., BaseAgent), sees only RouterTool
     } else if (this.mode === 'hierarchicalPlanner') {
-      agentToolProvider = {
-        getTools: async () => [this.createDelegateToSpecialistTool()],
-        getTool: async (name) =>
-          name === this.createDelegateToSpecialistTool().toolName ? this.createDelegateToSpecialistTool() : undefined,
-      };
-      AgentToContinueClass = PlanningAgent;
-      if (!effectiveRunConfig.systemPrompt) effectiveRunConfig.systemPrompt = DEFAULT_PLANNER_SYSTEM_PROMPT; // Ensure planner prompt
+      if (!this.toolsetOrchestrator || !this.aggregatedMasterToolProvider) {
+        throw new InvalidStateError('ToolsetOrchestrator or AggregatedMasterToolProvider not initialized for hierarchical planner continuation.');
+      }
+
+      const effectivelyPlanningAgent = 
+        (this.agentImplementation.name === BaseAgent.name && !this.options.agentImplementation) || 
+        (this.agentImplementation.name === PlanningAgent.name);
+
+      if (effectivelyPlanningAgent) {
+        AgentToRunClass = PlanningAgent; 
+        if (!effectiveRunConfig.systemPrompt || effectiveRunConfig.systemPrompt === this.defaultAgentRunConfig.systemPrompt) {
+            effectiveRunConfig.systemPrompt = DEFAULT_PLANNER_SYSTEM_PROMPT;
+        }
+        const delegateTool = this.createDelegateToSpecialistTool();
+        agentToolProvider = {
+          getTools: async () => [delegateTool],
+          getTool: async (name: string) => ((await delegateTool.getDefinition()).name === name ? delegateTool : undefined),
+          ensureInitialized: async () => Promise.resolve(),
+        };
+      } else {
+        AgentToRunClass = this.agentImplementation; 
+        agentToolProvider = this.aggregatedMasterToolProvider;
+        if (effectiveRunConfig.systemPrompt === DEFAULT_PLANNER_SYSTEM_PROMPT) {
+          effectiveRunConfig.systemPrompt = this.defaultAgentRunConfig.systemPrompt || "You are a helpful AI assistant. Please use tools if necessary.";
+        }
+      }
     } else {
       throw new InvalidStateError(`Continuation not defined for mode ${this.mode}`);
     }
-
+    
     // Update run status before proceeding with continuation
     await this.agentRunStorage.updateRun(runId, { status: 'in_progress' });
 
@@ -741,12 +828,11 @@ export class ApiInteractionManager {
       runConfig: effectiveRunConfig,
     };
 
-    const AgentClass = this.agentImplementation;
-    const agent = new AgentClass();
+    const agent = new AgentToRunClass(); // Use the determined AgentToRunClass for continuation
 
     if (!agent.submitToolOutputs) {
       throw new InvalidStateError(
-        `The configured agent implementation ("${AgentClass.name}") does not support 'submitToolOutputs'.`
+        `The configured agent implementation ("${AgentToRunClass.name}") does not support 'submitToolOutputs'.`
       );
     }
 

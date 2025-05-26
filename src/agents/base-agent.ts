@@ -14,6 +14,7 @@ import { ILLMClient, LLMMessage, LLMMessageChunk, LLMToolCall } from '../llm/typ
 import { ApplicationError, ToolNotFoundError, LLMError, ConfigurationError } from '../core/errors';
 import { v4 as uuidv4 } from 'uuid';
 import { mapLLMMessageToIMessagePartial } from '../threads/message';
+import { ToolExecutor } from './tool-executor';
 
 /**
 * BaseAgent provides a standard implementation of the IAgent interface.
@@ -54,10 +55,12 @@ export class BaseAgent implements IAgent {
       toolProvider,
       messageStorage,
       responseProcessor,
-      toolExecutor,
       contextManager,
       runConfig,
     } = agentContext;
+    
+    // Create a new ToolExecutor with the agent context
+    const toolExecutor = new ToolExecutor(toolProvider, runConfig.toolExecutorConfig, agentContext);
     
     let currentTurnNumber = 0; // Tracks the number of LLM interaction cycles within this `run` invocation.
     // `currentCycleInputMessages` holds messages that are "new" for the current LLM call:
@@ -135,6 +138,7 @@ export class BaseAgent implements IAgent {
           runConfig.systemPrompt ||
           "You are a helpful AI assistant. Please use tools if necessary to answer the user's request.",
         };
+
         // `contextManager.prepareMessagesForLLM` fetches historical messages, combines with system prompt
         // and `currentCycleInputMessages`, and handles truncation/summarization.
         const messagesForLLM = await contextManager.prepareMessagesForLLM(
@@ -253,7 +257,7 @@ export class BaseAgent implements IAgent {
             toolCalls: JSON.stringify(detectedToolCallsThisCycle),
           }
         );
-
+        
         // --- 6. Decide Next Step Based on LLM's Finish Reason ---
         if (llmStreamFinishReason === 'tool_calls' && detectedToolCallsThisCycle.length > 0) {
           // Check if max tool call continuations limit is reached.
@@ -285,8 +289,8 @@ export class BaseAgent implements IAgent {
             },
           });
           
-          // Execute Tools.
-          const toolExecutionResults = await toolExecutor.executeToolCalls(detectedToolCallsThisCycle);
+          // Call toolExecutor.executeToolCalls with the agent context
+          const toolExecutionResults = await toolExecutor.executeToolCalls(detectedToolCallsThisCycle, agentContext);
           
           const toolResultLLMMessagesForNextCycle: LLMMessage[] = [];
           
@@ -301,9 +305,9 @@ export class BaseAgent implements IAgent {
                 parsedInputArgs = JSON.parse(originalToolCall.function.arguments);
               } catch {
                 /* ignore parse error for event logging of input */
+                console.error(`[BaseAgent: ${runId}] Failed to parse tool call arguments for tool ${originalToolCall?.function.name}:`, originalToolCall?.function.arguments);
               }
             }
-            
             yield this.createEventHelper('agent.tool.execution.started', runId, threadId, {
               stepId: toolExecStepId,
               toolCallId: execResult.toolCallId,
@@ -343,28 +347,28 @@ export class BaseAgent implements IAgent {
               }
             }
             
-            
-            
-            const toolMessageContent =
-            typeof execResult.result.data === 'string'
-            ? execResult.result.data
-            : JSON.stringify(execResult.result.data ?? null);
+            const toolMessageContent = typeof execResult.result?.data === 'string'
+              ? execResult.result.data
+              : JSON.stringify(execResult.result?.data ?? null);
             
             const toolResponseMessage: LLMMessage = {
               role: 'tool',
               tool_call_id: execResult.toolCallId,
-              name: execResult.toolName, // Used by some LLMs like OpenAI for the 'tool' role message.
-              content: execResult.result.success
-              ? toolMessageContent
-              : `Error: ${execResult.result.error || 'Tool execution failed.'}`,
+              name: execResult.toolName,
+              content: execResult.result?.success
+                ? toolMessageContent
+                : `Error: ${execResult.result?.error || 'Tool execution failed.'}`,
             };
+            
             toolResultLLMMessagesForNextCycle.push(toolResponseMessage);
-            // Tool result messages will be persisted at the start of the *next* loop iteration.
+            
+            // Tool result messages will be persisted at the start of the next loop iteration
+            // when they become part of currentCycleInputMessages
           }
-          if (this.isCancelledThisRun) continue; // Check cancellation after processing all tool results.
+          if (this.isCancelledThisRun) continue;
           
-          // Prepare for the next LLM call cycle with these tool results.
           currentCycleInputMessages = toolResultLLMMessagesForNextCycle;
+          // console.log(`[BaseAgent: ${runId}] Current cycle input messages:`, JSON.stringify(currentCycleInputMessages, null, 2));
           if (currentCycleInputMessages.length === 0 && detectedToolCallsThisCycle.length > 0) {
             console.error(`[BaseAgent: ${runId}] All tool executions failed or produced no messages. Stopping.`);
             yield this.createEventHelper('thread.run.failed', runId, threadId, {
@@ -484,3 +488,102 @@ export class BaseAgent implements IAgent {
     } as unknown as Extract<AgentEvent, { type: T }>;
   }
 }
+
+/*
+--------------------------------------------------------------------------------
+Conceptual Example: Configuring an Agent with AggregatedToolProvider
+--------------------------------------------------------------------------------
+
+The following illustrates how `AggregatedToolProvider` could be used with
+`ToolsetOrchestrator` to provide tools from multiple sources to an agent
+like `BaseAgent`. This is a conceptual guide for integrating these components.
+
+Assumed imports:
+import { BaseAgent } from './base-agent'; // Assuming this file
+import { AgentContext, IAgentContext } from './types'; // Or relevant context type
+import { ToolsetOrchestrator, ToolProviderSourceConfig } from '../managers/toolset-orchestrator';
+import { AggregatedToolProvider } from '../tools/aggregated-tool-provider';
+import { IToolProvider } from '../core/tool';
+import { LLMClient } from '../llm/types'; // Mock or actual LLM client
+import { IMessageStorage } from '../threads/types'; // Mock or actual storage
+import { ResponseProcessor } from './response-processor'; // Mock or actual
+import { ToolExecutor } from './tool-executor'; // Mock or actual
+import { ContextManager } from './context-manager'; // Mock or actual
+import { AgentRunConfig } from './config'; // Mock or actual
+
+async function setupAndRunAgent() {
+// 1. Define configurations for your tool providers (e.g., OpenAPI specs)
+const providerSourceConfigs: ToolProviderSourceConfig[] = [
+{
+id: 'petstore-api',
+type: 'openapi',
+openapiConnectorOptions: {
+specUrl: 'https://petstore.swagger.io/v2/swagger.json',
+// Potentially add authentication, businessContextText etc.
+},
+toolsetCreationStrategy: 'byTag', // Create toolsets based on API tags
+},
+{
+id: 'calendar-api',
+type: 'openapi',
+openapiConnectorOptions: {
+// Assuming a local spec or another URL
+spec: { object: 'your OpenAPI spec object' } as any, // Or specUrl. Cast as any for example.
+authentication: { type: 'bearer', token: 'some_token' },
+},
+toolsetCreationStrategy: 'allInOne', // Group all tools into one set
+allInOneToolsetName: 'CalendarTools',
+},
+// ... other provider configs
+];
+
+// 2. Instantiate ToolsetOrchestrator
+const toolsetOrchestrator = new ToolsetOrchestrator(providerSourceConfigs);
+await toolsetOrchestrator.ensureInitialized(); // Initialize it
+
+// 3. Get all individual IToolProvider instances from the orchestrator
+// These are typically the underlying OpenAPIConnector instances.
+const individualToolProviders: IToolProvider[] = await toolsetOrchestrator.getToolProviders();
+
+// 4. Create an AggregatedToolProvider
+// This single provider will manage and expose tools from all individual providers.
+const aggregatedToolProvider = new AggregatedToolProvider(individualToolProviders);
+await aggregatedToolProvider.ensureInitialized(); // Ensure all underlying providers are ready
+
+// 5. Prepare the AgentContext
+// This is a simplified example; you'll need actual instances for these dependencies.
+const agentContext: IAgentContext = {
+runId: 'example-run-123',
+threadId: 'example-thread-456',
+llmClient: {} as LLMClient, // Replace with actual LLM client
+toolProvider: aggregatedToolProvider, // Use the aggregated provider here!
+messageStorage: {} as IMessageStorage, // Replace with actual message storage
+responseProcessor: new ResponseProcessor({} as LLMClient), // Replace/configure
+toolExecutor: new ToolExecutor(aggregatedToolProvider), // ToolExecutor needs a provider
+contextManager: {} as ContextManager, // Replace with actual context manager
+runConfig: { // Example run configuration
+model: 'gpt-4', // Specify your model
+systemPrompt: 'You are a helpful assistant.',
+maxToolCallContinuations: 5,
+} as AgentRunConfig,
+// ... any other necessary fields for your IAgentContext
+};
+
+// 6. Instantiate and run the agent
+const agent = new BaseAgent();
+const initialMessages = [{ role: 'user', content: 'Find a pet named "Buddy" and schedule a meeting.' }];
+
+// The agent will now use the aggregatedToolProvider to access tools
+// from both PetStore and Calendar APIs (and any others configured).
+for await (const event of agent.run(agentContext, initialMessages)) {
+console.log('Agent Event:', event.type, event.data);
+if (event.type === 'thread.run.completed' || event.type === 'thread.run.failed') {
+break;
+}
+}
+}
+
+// To run this conceptual example:
+// setupAndRunAgent().catch(console.error);
+
+*/

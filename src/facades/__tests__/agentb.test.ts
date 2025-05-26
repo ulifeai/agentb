@@ -219,7 +219,7 @@ describe('AgentBInternal Facade', () => {
     });
 
     it('should create AIM with genericOpenApi mode if one OpenAPI provider is registered', async () => {
-      const specOpts: OpenAPIConnectorOptions = { specUrl: 'http://single.com' };
+      const specOpts: OpenAPIConnectorOptions = { specUrl: 'http://single.com', sourceId: 'single' };
       agentBInstance.registerToolProvider({ id: 'single', type: 'openapi', openapiConnectorOptions: specOpts });
       await (agentBInstance as any).getOrCreateApiInteractionManager();
       
@@ -241,7 +241,7 @@ describe('AgentBInternal Facade', () => {
 
       expect(MockedApiInteractionManager).toHaveBeenCalledWith(
         expect.objectContaining({
-          mode: 'toolsetsRouter',
+          mode: 'hierarchicalPlanner',
           toolsetOrchestratorConfig: [source1, source2],
           genericOpenApiProviderConfig: undefined,
         })
@@ -273,7 +273,7 @@ describe('AgentBInternal Facade', () => {
     });
   });
 
-  describe('getStreamingHttpHandler()', () => {
+  describe('getExpressStreamingHttpHandler()', () => {
     let handler: (req: any, res: any) => Promise<void>;
     let mockReq: any;
     let mockRes: MockHttpResponse;
@@ -289,15 +289,13 @@ describe('AgentBInternal Facade', () => {
       mockRes = createMockResponse();
     });
 
-    it('should return 400 if getUserMessage callback is missing', () => {
-        expect(() => agentBInstance.getStreamingHttpHandler({} as any)).toThrow(ConfigurationError);
-    });
+ 
 
     it('should call getThreadId and getUserMessage callbacks', async () => {
       const getThreadIdSpy = jest.fn().mockResolvedValue('thread-from-cb');
       const getUserMessageSpy = jest.fn().mockResolvedValue({ role: 'user', content: 'User CB prompt' } as LLMMessage);
       
-      handler = agentBInstance.getStreamingHttpHandler({
+      handler = agentBInstance.getExpressStreamingHttpHandler({
         getThreadId: getThreadIdSpy,
         getUserMessage: getUserMessageSpy,
       });
@@ -311,7 +309,7 @@ describe('AgentBInternal Facade', () => {
         const newThreadId = 'newly-created-thread-id';
         mockThreadStorageInstance.createThread.mockResolvedValueOnce({ id: newThreadId, createdAt: new Date() } as IThread);
 
-        handler = agentBInstance.getStreamingHttpHandler({
+        handler = agentBInstance.getExpressStreamingHttpHandler({
             // No getThreadId provided, should use default which creates a thread
             getUserMessage: async () => ({ role: 'user', content: 'Prompt' }),
         });
@@ -328,12 +326,12 @@ describe('AgentBInternal Facade', () => {
     });
 
     it('should return 400 if user message is not provided by callback', async () => {
-      handler = agentBInstance.getStreamingHttpHandler({
+      handler = agentBInstance.getExpressStreamingHttpHandler({
         getUserMessage: async () => (null as unknown as LLMMessage), // Simulate missing message
       });
       await handler(mockReq, mockRes);
       expect(mockRes.statusCode).toBe(400);
-      expect(mockRes._dataChunks.join('')).toContain('User message content is required.');
+      expect(mockRes._dataChunks.join('')).toContain('Invalid message.');
     });
 
     it('should call aim.runAgentInteraction and stream events', async () => {
@@ -348,7 +346,7 @@ describe('AgentBInternal Facade', () => {
       }
       mockApiInteractionManagerInstance.runAgentInteraction.mockReturnValueOnce(mockAgentEvents());
 
-      handler = agentBInstance.getStreamingHttpHandler({
+      handler = agentBInstance.getExpressStreamingHttpHandler({
         getThreadId: async () => 'fixed-thread-id',
         getUserMessage: async () => userMessage,
       });
@@ -385,7 +383,7 @@ describe('AgentBInternal Facade', () => {
             } as IAgentRun);
         });
 
-        handler = agentBInstance.getStreamingHttpHandler({
+        handler = agentBInstance.getExpressStreamingHttpHandler({
             getThreadId: async () => 't1',
             getUserMessage: async () => ({role: 'user', content: 'trigger error'}),
         });

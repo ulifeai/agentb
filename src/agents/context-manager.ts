@@ -21,7 +21,7 @@ export interface ContextManagerConfig {
 }
 
 export const DEFAULT_CONTEXT_MANAGER_CONFIG: ContextManagerConfig = {
-  tokenThreshold: 8000, // Example: ~8k tokens, common for models like gpt-3.5-turbo
+  tokenThreshold: 75000, // Example: ~8k tokens, common for models like gpt-3.5-turbo
   summaryTargetTokens: 1000,
   reservedTokens: 1500,
   summarizationModel: 'gpt-4o-mini', // A capable but potentially cheaper model for summarization
@@ -66,7 +66,7 @@ export class ContextManager {
     const queryLimit = 100; // Fetch last 100 messages as a starting point
     const historyMessagesModels = await this.messageStorage.getMessages(threadId, { limit: queryLimit, order: 'desc' });
     const historyLLMMessages = historyMessagesModels.reverse().map(this.mapIMessageToLLMMessage); // Reverse to chronological
-
+    
     // 2. Check for existing summary message and place it correctly
     let messagesToConsider: LLMMessage[] = [];
     const summaryIndex = historyLLMMessages.findIndex(
@@ -84,27 +84,52 @@ export class ContextManager {
       messagesToConsider = historyLLMMessages;
     }
 
+    // Filter out any messages from allHistoricalLLMMessages that are effectively duplicated by currentTurnMessages.
+    // This is important if currentTurnMessages are tool results that were just persisted.
+
     if (currentTurnMessages.length > 0 && messagesToConsider.length >= currentTurnMessages.length) {
-      // check whether the last N items in messagesToConsider exactly match currentTurnMessages
       const n = currentTurnMessages.length;
+      // Check if the tail of messagesToConsider matches currentTurnMessages
       let suffixMatches = true;
       for (let i = 0; i < n; i++) {
+        // Compare the last n messages of messagesToConsider with currentTurnMessages
         const histMsg = messagesToConsider[messagesToConsider.length - n + i];
         const currMsg = currentTurnMessages[i];
-        if (histMsg.role !== currMsg.role || histMsg.content !== currMsg.content) {
+
+        // More robust check: compare role, content, and tool_call_id if present
+        let contentMatch = false;
+        if (typeof histMsg.content === 'string' && typeof currMsg.content === 'string') {
+            contentMatch = histMsg.content === currMsg.content;
+        } else {
+            contentMatch = JSON.stringify(histMsg.content) === JSON.stringify(currMsg.content);
+        }
+
+        const toolCallIdMatch = (histMsg.tool_call_id || null) === (currMsg.tool_call_id || null);
+        // Check tool_calls content as well if they exist
+        let toolCallsMatch = true;
+        if (histMsg.tool_calls || currMsg.tool_calls) {
+            toolCallsMatch = JSON.stringify(histMsg.tool_calls || []) === JSON.stringify(currMsg.tool_calls || []);
+        }
+
+
+        if (histMsg.role !== currMsg.role || !contentMatch || !toolCallIdMatch || !toolCallsMatch) {
           suffixMatches = false;
           break;
         }
       }
-      // if they do match, drop that trailing slice
+
       if (suffixMatches) {
+        // If the suffix matches, remove it from messagesToConsider before adding currentTurnMessages
         messagesToConsider.splice(messagesToConsider.length - n, n);
+        console.debug('[ContextManager] Removed duplicated suffix from historical messages matching currentTurnMessages.');
       }
     }
     
 
     // 3. Combine with system prompt and current turn messages
     let currentMessagesForLLM: LLMMessage[] = [systemPrompt, ...messagesToConsider, ...currentTurnMessages];
+
+    // console.log('[ContextManager] Current messages for LLM:', JSON.stringify(currentMessagesForLLM, null, 2));
 
     // 4. Count tokens
     let currentTokenCount = await this.llmClient.countTokens(currentMessagesForLLM, this.config.summarizationModel); // Use summarization model for count consistency before potential summary
@@ -124,20 +149,16 @@ export class ContextManager {
         const summaryText = await this.generateSummary(messagesToSummarize);
         if (summaryText) {
           const summaryLLMMessage: LLMMessage = {
-            role: 'user', // Or 'user', depending on how you want the LLM to treat it. 'System' can work for context.
+            role: 'system',
             content: `======== CONVERSATION HISTORY SUMMARY ========\n${summaryText}\n======== END OF SUMMARY ========`,
           };
 
           // Reconstruct messages: system prompt, new summary, and current turn messages
-          const postSummaryMessages = historyLLMMessages.slice(summaryIndex + 1); // Messages after the old summary
-
           currentMessagesForLLM = [
             systemPrompt,
             summaryLLMMessage, // The new summary
-            ...postSummaryMessages, // Messages that came after the previous summary point
             ...currentTurnMessages  // The newest messages for this turn
           ];
-          // currentMessagesForLLM = [systemPrompt, summaryLLMMessage, ...currentTurnMessages];
           currentTokenCount = await this.llmClient.countTokens(currentMessagesForLLM, this.config.summarizationModel);
           console.info(`[ContextManager] Thread ${threadId} summarized. New token count: ${currentTokenCount}`);
         } else {
