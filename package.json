@@ -1,6 +1,6 @@
 {
   "name": "@ulifeai/agentb",
-  "version": "0.1.0-beta",
+  "version": "0.1.0",
   "description": "The easiest way to integrate AI agents with your API tools in your app.",
   "main": "dist/index.js",
   "module": "dist/esm/index.js",
@@ -28,12 +28,10 @@
     "test:ui": "jest --selectProjects ui",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-
     "prepublishOnly": "npm run build",
     "publish:all": "npm run build && npm publish && cd ui && npm publish",
-    "version": "npm run build && git add -A dist ui/dist",
+    "version": "npm run build && git add -f dist ui/dist",
     "postversion": "git push && git push --tags",
-
     "start:example:petstore": "node dist/examples/run-local-openapi-agent.js",
     "dev:example:petstore": "nodemon src/examples/run-local-openapi-agent.ts"
   },
