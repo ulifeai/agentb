@@ -1,4 +1,4 @@
-# Tutorial 1: Your First Agent - Basic Chat
+# Your First Agent - Basic Chat
 
 Let's build the simplest possible AI agent: a conversational chatbot that can stream responses back to your console. This will introduce you to the `AgentB` facade for quick initialization.
 
@@ -6,8 +6,8 @@ Let's build the simplest possible AI agent: a conversational chatbot that can st
 
 ## Prerequisites
 
-*   You've completed the [Installation Guide](../GETTING-STARTED/01-installation.md).
-*   Your `OPENAI_API_KEY` is set in your `.env` file.
+* You've completed the [Installation Guide](../01-installation.md).
+* Your `OPENAI_API_KEY` is set in your `.env` file.
 
 ## Step 1: Create Your Script
 
@@ -15,7 +15,7 @@ Create a new file, for example, `basicChat.ts`.
 
 ## Step 2: Write the Code
 
-```typescript title="basicChat.ts"
+```typescript
 import * as dotenv from 'dotenv';
 dotenv.config(); // Load environment variables
 
@@ -102,12 +102,14 @@ runBasicChat().catch(console.error);
 
 ## Step 3: Run Your Agent
 
-1.  **Save** the `basicChat.ts` file.
+1. **Save** the `basicChat.ts` file.
 2.  **Compile** (if you're not using `ts-node`):
+
     ```bash
     npx tsc basicChat.ts
     ```
 3.  **Run**:
+
     ```bash
     node basicChat.js
     # OR if you have ts-node installed:
@@ -115,7 +117,8 @@ runBasicChat().catch(console.error);
     ```
 
 You should see:
-```text
+
+```
 🤖 AgentB Initialized for Basic Chat!
 
 Starting chat on thread: basic-chat-thread-xxxxxxxxxxxxx
@@ -128,7 +131,7 @@ Type your message and press Enter. The agent's response will stream back!
 
 **Example Interaction:**
 
-```text
+```
 You: Hello, who are you?
 Agent: I am a large language model, trained by OpenAI.
 You: What's the weather like today?
@@ -140,13 +143,13 @@ You: exit
 
 ## Key Takeaways
 
-*   **`AgentB.initialize()`**: Sets up the core framework with sensible defaults. You specified the LLM provider and model.
-*   **`AgentB.runHttpInteractionStream()`**: This is the core function from the facade to start an interaction. It takes a `threadId` (to maintain conversation context) and the user's `LLMMessage`. It returns an `AsyncGenerator` of `AgentEvent`s.
-*   **Event Streaming**: We iterated over the `agentEventStream`.
-    *   `thread.message.delta`: Contains chunks of the AI's response. This is what enables the streaming effect.
-    *   `thread.message.completed`: Signals the end of an assistant's message.
-    *   `thread.run.failed`: Indicates an error during the agent's processing.
+* **`AgentB.initialize()`**: Sets up the core framework with sensible defaults. You specified the LLM provider and model.
+* **`AgentB.runHttpInteractionStream()`**: This is the core function from the facade to start an interaction. It takes a `threadId` (to maintain conversation context) and the user's `LLMMessage`. It returns an `AsyncGenerator` of `AgentEvent`s.
+* **Event Streaming**: We iterated over the `agentEventStream`.
+  * `thread.message.delta`: Contains chunks of the AI's response. This is what enables the streaming effect.
+  * `thread.message.completed`: Signals the end of an assistant's message.
+  * `thread.run.failed`: Indicates an error during the agent's processing.
 
 Congratulations! You've built your first streaming AI chatbot with AgentB.
 
-**Next Up**: [Connecting AgentB to Your API (OpenAPI)](./02-agent-with-your-api.md) to give your agent some real capabilities! 
+**Next Up**: [Connecting AgentB to Your API (OpenAPI)](02-agent-with-your-api.md) to give your agent some real capabilities!

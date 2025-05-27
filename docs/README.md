@@ -1,35 +1,54 @@
-# AgentB: Effortless AI Agent Integration for Your Apps
+# Table of content
 
-Welcome to **AgentB**! 🚀
-
-AgentB is designed to make integrating powerful AI agents into your Node.js applications incredibly simple. Whether you want to add a smart chatbot, connect an AI to your existing APIs, or build complex multi-agent systems, AgentB provides the tools to get you up and running in minutes, not days.
-
-**Our Philosophy: Quick Wins, Deep Capabilities.**
-
-*   **Start Simple**: Get your first AI agent interacting in just a few lines of code.
-*   **Connect Your World**: Seamlessly link agents to your APIs using OpenAPI specifications, complete with authentication and multi-turn conversation handling.
-*   **Beautiful UI (Optional)**: Drop in our pre-built React UI component (`@ulifeai/agentb-ui`) for an instant chat interface.
-*   **Grow as You Go**: As your needs evolve, AgentB offers deep customization, advanced agent architectures (planners, routers), and fine-grained control over every aspect of agent behavior.
-
-**With AgentB, you can:**
-
-*   **Launch a streaming HTTP endpoint for your agent** with minimal setup.
-*   **Equip agents with tools** based on your OpenAPI specs.
-*   **Manage conversation history** effortlessly.
-*   **Build rich, interactive user experiences** with real-time event streaming.
-
-Ready to see how easy it is? Let's dive into the [**Tutorials**](./TUTORIALS/01-your-first-agent-basic-chat.md)!
-
----
-
-**Packages:**
-
-*   Core Framework: [`@ulifeai/agentb`](https://www.npmjs.com/package/@ulifeai/agentb)
-*   React UI Components: [`@ulifeai/agentb-ui`](https://www.npmjs.com/package/@ulifeai/agentb-ui)
-
----
-
-Explore further:
-*   [Core Concepts](./CORE-CONCEPTS/01-key-terminology.md)
-*   [In-Depth Guides](./GUIDES/01-agents/01-understanding-agents.md)
-*   [API Reference](./API-REFERENCE/01-agentb-facade.md) 
+* [**AgentB Framework**](<README (1).md>)
+* [**Getting Started**](01-installation.md)
+  * [Installation](01-installation.md)
+* [**Tutorials (Quick Wins!)**](TUTORIALS/01-your-first-agent-basic-chat.md)
+  * [1. Your First Agent: Basic Chat](TUTORIALS/01-your-first-agent-basic-chat.md)
+  * [2. Connecting AgentB to Your API (OpenAPI)](TUTORIALS/02-agent-with-your-api.md)
+  * [3. Adding the Chat UI (`@ulifeai/agentb-ui`)](TUTORIALS/03-adding-the-chat-ui.md)
+  * [4. Handling Authentication with Your API](TUTORIALS/04-api-authentication.md)
+  * [5. Creating a Custom Tool](TUTORIALS/05-custom-tool.md)
+* [**Core Concepts**](CORE-CONCEPTS/01-key-terminology.md)
+  * [Key Terminology](CORE-CONCEPTS/01-key-terminology.md)
+  * [The Agent Lifecycle & Events](CORE-CONCEPTS/02-agent-lifecycle-events.md)
+  * [How Tools Work](CORE-CONCEPTS/03-how-tools-work.md)
+  * [Conversation Management](CORE-CONCEPTS/04-conversation-management.md)
+* [**In-Depth Guides**](./)
+  * [The `AgentB` Facade](GUIDES/01-agentb-facade.md)
+  * [The `ApiInteractionManager`](GUIDES/02-api-interaction-manager.md)
+    * [Operational Modes](GUIDES/02a-aim-operational-modes.md)
+  * [Agents Deep Dive](GUIDES/03-agents/01-base-agent.md)
+    * [`BaseAgent`](GUIDES/03-agents/01-base-agent.md)
+    * [`PlanningAgent`](GUIDES/03-agents/02-planning-agent.md)
+    * [Agent Context & Configuration](GUIDES/03-agents/03-agent-context-config.md)
+  * [Tools & Tool Providers](GUIDES/04-tools/01-itool-interface.md)
+    * [`ITool` & `IToolProvider`](GUIDES/04-tools/01-itool-interface.md)
+    * [`OpenAPIConnector`](GUIDES/04-tools/02-openapi-connector.md)
+    * [`ToolsetOrchestrator`](GUIDES/04-tools/03-toolset-orchestrator.md)
+    * [Specialized Tools (Delegate, GenericHTTP)](GUIDES/04-tools/04-specialized-tools.md)
+  * [LLM Integration](GUIDES/05-llms/01-illmclient.md)
+    * [`ILLMClient` & `OpenAIAdapter`](GUIDES/05-llms/01-illmclient.md)
+    * [Prompt Engineering with AgentB](GUIDES/05-llms/02-prompt-engineering.md)
+  * [Storage Adapters](GUIDES/06-storage/01-overview.md)
+    * [Overview (`IThreadStorage`, etc.)](GUIDES/06-storage/01-overview.md)
+    * [`MemoryStorage`](GUIDES/06-storage/02-memory-storage.md)
+    * [SQL & MongoDB (Conceptual)](GUIDES/06-storage/03-sql-mongodb-storage.md)
+  * [Streaming Server-Sent Events (SSE)](GUIDES/07-streaming-sse.md)
+  * [UI Integration (`@ulifeai/agentb-ui`)](GUIDES/08-ui-integration.md)
+* [**API Reference**](./)
+  * [`@ulifeai/agentb` (Core)](API-REFERENCE/01-agentb-core.md)
+    * [`AgentB` Facade](API-REFERENCE/01a-agentb-facade.md)
+    * [`ApiInteractionManager`](API-REFERENCE/01b-api-interaction-manager.md)
+    * [Key Interfaces (IAgent, ITool, etc.)](API-REFERENCE/01c-key-interfaces.md)
+    * [Events (`AgentEvent` types)](API-REFERENCE/01d-agent-events.md)
+  * [`@ulifeai/agentb-ui`](API-REFERENCE/02-agentb-ui.md)
+    * [`useChat` Hook](API-REFERENCE/02a-usechat-hook.md)
+    * [Components (`AgentBChat`, etc.)](API-REFERENCE/02b-ui-components.md)
+* [**Advanced Scenarios & Customization**](./)
+  * [Building a Hierarchical Planner Agent](ADVANCED/01-hierarchical-planner.md)
+  * [Multi-Provider Tool Orchestration](ADVANCED/02-multi-provider-tools.md)
+  * [Customizing Agent Behavior](ADVANCED/03-customizing-agents.md)
+* [**Troubleshooting & FAQ**](TROUBLESHOOTING.md)
+* [**Contributing**](CONTRIBUTING.md)
+* [**Changelog**](CHANGELOG.md)
