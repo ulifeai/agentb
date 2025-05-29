@@ -1,4 +1,3 @@
-// src/llm/__tests__/mock-prompt-data.ts
 
 import { IToolDefinition, IToolParameter, IToolSet, ITool } from '../../core/tool';
 import { OpenAPISpec, ConnectorOperation } from '../../openapi/types'; // For generateGenericHttpToolSystemPrompt

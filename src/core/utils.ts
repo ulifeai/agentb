@@ -1,4 +1,3 @@
-// src/core/utils.ts
 
 /**
  * @file Core utility functions shared across the project.

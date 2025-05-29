@@ -1,4 +1,3 @@
-// src/threads/__tests__/thread.test.ts
 
 import { createThreadObject } from '../thread';
 import { IThread } from '../types';

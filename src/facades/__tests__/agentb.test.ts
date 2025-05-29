@@ -1,4 +1,3 @@
-// src/facade/__tests__/agent-b.test.ts
 
 import { AgentBInternal } from '../agentb'; // Test the internal class
 import {

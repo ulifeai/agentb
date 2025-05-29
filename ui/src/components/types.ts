@@ -1,4 +1,3 @@
-// packages/agentb-chat-ui/src/components/types.ts
 import { AgentEvent } from '../api'; // Using the comprehensive AgentEvent from api.ts
 
 export interface ChatMessage {

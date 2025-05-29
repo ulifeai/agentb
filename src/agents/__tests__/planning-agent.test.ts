@@ -1,4 +1,3 @@
-// src/agents/__tests__/planning-agent.test.ts
 
 import { PlanningAgent, DEFAULT_PLANNER_SYSTEM_PROMPT } from '../planning-agent';
 import { IAgentContext, AgentEvent, IAgentEventMessageCompleted } from '../types';

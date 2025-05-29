@@ -1,4 +1,3 @@
-// src/openapi/types.ts
 
 /**
  * @file Defines TypeScript interfaces for OpenAPI specifications and connector-specific types.

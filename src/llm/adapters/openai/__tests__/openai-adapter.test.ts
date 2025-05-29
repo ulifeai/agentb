@@ -1,4 +1,3 @@
-// src/llm/adapters/openai/__tests__/openai-adapter.test.ts
 
 import OpenAI from 'openai';
 import { OpenAIAdapter, OpenAIAdapterOptions } from '../openai-adapter';

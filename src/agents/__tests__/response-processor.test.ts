@@ -1,4 +1,3 @@
-// src/agents/__tests__/response-processor.test.ts
 
 import { LLMResponseProcessor, ParsedLLMResponseEvent } from '../response-processor';
 import { ResponseProcessorConfig } from '../config';

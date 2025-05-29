@@ -1,4 +1,3 @@
-// src/agents/config.ts
 
 /**
  * @file Defines configuration structures for agents and their response processing.

@@ -1,4 +1,3 @@
-// src/openapi/tools/generic-http-tool.ts
 
 import { ITool, IToolDefinition, IToolParameter, IToolResult } from '../../core/tool';
 import { OpenAPIConnector } from '../connector'; // To call the execution logic

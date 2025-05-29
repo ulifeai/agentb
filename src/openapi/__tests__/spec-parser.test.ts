@@ -1,4 +1,3 @@
-// src/openapi/__tests__/spec-parser.test.ts
 
 import { OpenAPISpecParser } from '../spec-parser';
 import { OpenAPISpec, ConnectorOperation } from '../types';

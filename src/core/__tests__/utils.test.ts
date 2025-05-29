@@ -1,4 +1,3 @@
-// src/core/__tests__/utils.test.ts
 
 import { sanitizeIdForLLM } from '../utils';
 

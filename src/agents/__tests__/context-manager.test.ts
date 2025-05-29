@@ -1,4 +1,3 @@
-// src/agents/__tests__/context-manager.test.ts
 
 import { ContextManager, ContextManagerConfig, DEFAULT_CONTEXT_MANAGER_CONFIG } from '../context-manager';
 import { IMessageStorage, IMessage } from '../../threads/types';

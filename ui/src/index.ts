@@ -1,4 +1,3 @@
-// packages/agentb-chat-ui/src/index.ts
 
 // API and Hooks
 export * from './api';

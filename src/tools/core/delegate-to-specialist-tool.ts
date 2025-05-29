@@ -1,4 +1,3 @@
-// src/tools/core/delegate-to-specialist-tool.ts
 
 /**
 * @file DelegateToSpecialistTool - An ITool implementation that allows a planning agent

@@ -1,4 +1,3 @@
-// packages/agentb-chat-ui/src/hooks/useChat.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatMessage } from '../components/types';

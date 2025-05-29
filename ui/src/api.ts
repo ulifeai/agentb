@@ -1,4 +1,3 @@
-// packages/agentb-chat-ui/src/api.ts
 
 // --- Backend AgentEvent Types (Mirrored for UI) ---
 // These should ideally be in a shared types package, or kept in sync manually.

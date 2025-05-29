@@ -1,4 +1,3 @@
-// src/agents/response-processor.ts
 
 /**
  * @file LLMResponseProcessor - Responsible for parsing raw LLM output (streaming or complete)

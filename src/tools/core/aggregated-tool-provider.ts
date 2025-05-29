@@ -1,4 +1,3 @@
-// src/tools/aggregated-tool-provider.ts
 
 import { ITool, IToolProvider } from '../../core/tool';
 import { ApplicationError } from '../../core/errors';

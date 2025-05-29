@@ -1,4 +1,3 @@
-// src/tools/__tests__/aggregated-tool-provider.test.ts
 
 import { AggregatedToolProvider } from '../../tools/core/aggregated-tool-provider';
 import { ITool, IToolProvider, IToolDefinition, IToolResult } from '../../core/tool';

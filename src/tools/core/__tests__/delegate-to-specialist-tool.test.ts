@@ -1,4 +1,3 @@
-// src/tools/core/__tests__/delegate-to-specialist-tool.test.ts
 
 import { DelegateToSpecialistTool, DelegateToolDependencies } from '../delegate-to-specialist-tool';
 import { ToolsetOrchestrator } from '../../../managers/toolset-orchestrator';

@@ -1,4 +1,3 @@
-// src/agents/__tests__/config.test.ts
 
 import {
     DEFAULT_AGENT_RUN_CONFIG,

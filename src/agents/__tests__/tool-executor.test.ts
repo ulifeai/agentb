@@ -1,4 +1,3 @@
-// src/agents/__tests__/tool-executor.test.ts
 
 import { ToolExecutor } from '../tool-executor';
 import { ToolExecutorConfig } from '../config';

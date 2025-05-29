@@ -1,4 +1,3 @@
-// src/core/__tests__/errors.test.ts
 
 import {
     ApplicationError,
