@@ -1,4 +1,3 @@
-// src/openapi/spec-parser.ts
 
 /**
 * @file Parses an OpenAPI specification to extract structured operation details.

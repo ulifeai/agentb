@@ -1,4 +1,3 @@
-// src/openapi/connector.ts
 
 /**
  * @file OpenAPIConnector class for interacting with an API defined by an OpenAPI specification.

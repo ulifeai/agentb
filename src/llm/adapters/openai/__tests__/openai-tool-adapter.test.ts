@@ -1,4 +1,3 @@
-// src/llm/adapters/openai/__tests__/openai-tool-adapter.test.ts
 
 import { adaptToolDefinitionToOpenAI, adaptToolDefinitionsToOpenAI } from '../openai-tool-adapter';
 import { IToolDefinition, IToolParameter } from '../../../../core/tool';

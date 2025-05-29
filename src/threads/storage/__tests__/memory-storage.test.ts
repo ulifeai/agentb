@@ -1,4 +1,3 @@
-// src/threads/storage/__tests__/memory-storage.test.ts
 
 import { MemoryStorage } from '../memory-storage';
 import { IMessage, IThread } from '../../types';

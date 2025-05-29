@@ -1,4 +1,3 @@
-// src/openapi/__tests__/mock-openapi.data.ts
 import { OpenAPISpec } from '../types';
 
 export const minimalValidSpec: OpenAPISpec = {

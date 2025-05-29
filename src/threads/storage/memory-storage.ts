@@ -1,4 +1,3 @@
-// src/threads/storage/memory-storage.ts
 
 /**
  * @file In-memory implementation of IMessageStorage and IThreadStorage.

@@ -1,4 +1,3 @@
-// src/llm/prompt-builder.ts
 
 /**
  * @file Generates system prompts for LLMs based on available tools and API information.

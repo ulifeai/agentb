@@ -1,4 +1,3 @@
-// src/openapi/utils.ts
 
 /**
  * @file Utility functions specific to OpenAPI spec fetching and header manipulation.

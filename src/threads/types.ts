@@ -1,4 +1,3 @@
-// src/threads/types.ts
 
 /**
  * @file Defines core types and interfaces for managing conversation threads and messages.

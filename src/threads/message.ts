@@ -1,4 +1,3 @@
-// src/threads/message.ts
 
 /**
  * @file Defines the IMessage interface and related utilities or constants for messages.

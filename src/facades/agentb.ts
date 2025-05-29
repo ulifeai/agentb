@@ -1,4 +1,3 @@
-// src/facades/agentb.ts
 
 /**
  * @file AgentB - A high-level facade for simplifying the setup and usage of the AI Agent Framework.

@@ -1,4 +1,3 @@
-// src/managers/api-interaction-manager.ts
 
 /**
  * @file ApiInteractionManager - Provides a high-level interface for applications

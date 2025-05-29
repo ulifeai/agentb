@@ -1,4 +1,3 @@
-// src/llm/types.ts
 
 /**
  * @file Defines core abstract types and interfaces for LLM interactions.

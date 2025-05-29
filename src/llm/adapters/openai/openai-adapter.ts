@@ -1,4 +1,3 @@
-// src/llm/adapters/openai/openai-adapter.ts
 
 /**
  * @file Concrete implementation of ILLMClient using the OpenAI API.

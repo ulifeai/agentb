@@ -1,4 +1,3 @@
-// src/openapi/__tests__/connector.test.ts
 
 import { OpenAPIConnector, OpenAPIConnectorOptions } from '../connector';
 import { OpenAPISpecParser } from '../spec-parser';

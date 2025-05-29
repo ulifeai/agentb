@@ -1,4 +1,3 @@
-// src/managers/__tests__/toolset-orchestrator.test.ts
 
 import { ToolsetOrchestrator, ToolProviderSourceConfig } from '../toolset-orchestrator';
 import { OpenAPIConnector, OpenAPIConnectorOptions } from '../../openapi/connector';

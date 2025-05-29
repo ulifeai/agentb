@@ -1,4 +1,3 @@
-// src/core/errors.ts
 
 /**
  * @file Defines custom error classes for the application.

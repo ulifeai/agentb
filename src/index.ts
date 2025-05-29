@@ -1,5 +1,3 @@
-// src/index.ts
-
 /**
  * @file Entry point for the AI Agent and Tooling Framework.
  * This file exports the primary classes, interfaces, types, and utility functions

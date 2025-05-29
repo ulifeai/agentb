@@ -1,4 +1,3 @@
-// src/agents/base-agent.ts
 
 /**
 * @file BaseAgent - Provides a foundational class for creating agents.

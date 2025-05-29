@@ -1,4 +1,3 @@
-// src/core/tool.ts
 
 /**
  * @file Defines the core interfaces for tools and tool providers.

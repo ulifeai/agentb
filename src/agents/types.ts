@@ -1,4 +1,3 @@
-// src/agents/types.ts
 
 /**
  * @file Defines core types and interfaces for agent functionality,

@@ -1,4 +1,3 @@
-// src/agents/index.ts
 
 /**
  * @file Entry point for the "agents" module.

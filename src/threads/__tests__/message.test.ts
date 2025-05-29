@@ -1,4 +1,3 @@
-// src/threads/__tests__/message.test.ts
 
 import { createMessageObject, mapLLMMessageToIMessagePartial, mapIMessageToLLMMessage } from '../message';
 import { IMessage } from '../types';

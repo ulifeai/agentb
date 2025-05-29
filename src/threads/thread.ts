@@ -1,4 +1,3 @@
-// src/threads/thread.ts
 
 /**
  * @file Defines the IThread interface and related utilities or constants for threads.
