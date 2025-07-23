@@ -176,4 +176,4 @@ AgentB is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file
 
 ---
 
-*AgentB: Making AI integration as easy as calling an API.* 
+*AgentB: Making AI integration as easy as calling an API :).* 
